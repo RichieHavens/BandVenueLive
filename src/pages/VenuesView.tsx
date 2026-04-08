@@ -4,7 +4,6 @@ import { Venue } from '../types';
 import { Search, Loader2, MapPin } from 'lucide-react';
 import { displayAddress } from '../lib/geo';
 import { formatDate } from '../lib/utils';
-import { STOCK_IMAGES } from '../constants/stockImages';
 import ProfilePreviewModal from '../components/ProfilePreviewModal';
 
 export function VenuesView() {
@@ -51,7 +50,7 @@ export function VenuesView() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h2 className="text-4xl font-bold tracking-tight">Venues</h2>
         <div className="relative w-full md:w-72">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={18} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
           <input
             type="text"
             placeholder="Search venues..."
@@ -63,11 +62,11 @@ export function VenuesView() {
       </div>
       
       {loading ? (
-        <div className="flex justify-center py-20"><Loader2 className="animate-spin text-red-600" size={48} /></div>
+        <div className="flex justify-center py-20"><Loader2 className="animate-spin text-red-500" size={48} /></div>
       ) : filtered.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {filtered.map((venue) => {
-            const defaultVenueLogo = STOCK_IMAGES.find(img => img.type === 'logo' && img.category === 'venue')?.url;
+            const defaultVenueLogo = `https://picsum.photos/seed/venue-logo-${venue.id}/200/200`;
             return (
               <div 
                 key={venue.id} 
@@ -88,11 +87,11 @@ export function VenuesView() {
                 <div>
                   <div className="flex flex-wrap gap-1 mb-2">
                     {(venue as any).genres?.map((g: string) => (
-                      <span key={g} className="text-[10px] font-bold uppercase tracking-widest text-red-600/70">{g}</span>
+                      <span key={g} className="text-[10px] font-bold uppercase tracking-widest text-red-500/70">{g}</span>
                     ))}
                   </div>
                   <h3 className="text-2xl font-bold mb-1">{venue.name}</h3>
-                  <p className="text-neutral-500 text-sm mb-3">{displayAddress(venue.address)}</p>
+                  <p className="text-neutral-400 text-sm mb-3">{displayAddress(venue.address)}</p>
                   <p className="text-neutral-400 line-clamp-2 text-sm">{venue.description}</p>
                   {(venue as any).updated_at && (
                     <p className="text-[10px] text-neutral-600 mt-2">
@@ -108,7 +107,7 @@ export function VenuesView() {
       ) : (
         <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-12 text-center">
           <MapPin className="mx-auto text-neutral-700 mb-4" size={48} />
-          <p className="text-neutral-500">No venues found.</p>
+          <p className="text-neutral-400">No venues found.</p>
         </div>
       )}
 

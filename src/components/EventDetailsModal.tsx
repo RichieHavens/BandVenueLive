@@ -47,7 +47,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
           <div className="absolute bottom-6 left-6 right-6">
             <div className="flex flex-wrap gap-2 mb-3">
               {event.event_genres?.map((g: string) => (
-                <span key={g} className="px-3 py-1 bg-red-600/20 text-red-600 text-xs font-bold uppercase tracking-widest rounded-full backdrop-blur-md border border-red-600/20">
+                <span key={g} className="px-3 py-1 bg-cyan-400/20 text-cyan-400 text-xs font-bold uppercase tracking-widest rounded-full backdrop-blur-md border border-cyan-400/20">
                   {g}
                 </span>
               ))}
@@ -55,7 +55,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
             <h2 className="text-3xl sm:text-4xl font-black text-white leading-tight mb-2">{displayTitle}</h2>
             {bandNames && displayTitle !== bandNames && (
               <p className="text-xl text-neutral-300 font-medium flex items-center gap-2">
-                <Music size={20} className="text-red-600" />
+                <Music size={20} className="text-cyan-400" />
                 {bandNames}
               </p>
             )}
@@ -66,10 +66,10 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-2xl bg-neutral-800 flex items-center justify-center shrink-0">
-                <Calendar className="text-red-600" size={24} />
+                <Calendar className="text-cyan-400" size={24} />
               </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-1">Date & Time</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-1">Date & Time</p>
                 <p className="text-white font-medium">
                   {formatFullDate(event.start_time)}
                 </p>
@@ -82,10 +82,10 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
 
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-2xl bg-neutral-800 flex items-center justify-center shrink-0">
-                <MapPin className="text-red-600" size={24} />
+                <MapPin className="text-cyan-400" size={24} />
               </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-1">Venue</p>
+                <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-1">Venue</p>
                 <p className="text-white font-medium">{venueName}</p>
                 {venueAddress && (
                   <p className="text-neutral-400 text-sm mt-0.5">{venueAddress}</p>
@@ -97,7 +97,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
           {event.description && (
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <Info className="text-red-600" size={20} />
+                <Info className="text-cyan-400" size={20} />
                 <h3 className="text-lg font-bold text-white">About this event</h3>
               </div>
               <div className="text-neutral-300 leading-relaxed whitespace-pre-wrap bg-neutral-800/50 p-6 rounded-2xl border border-neutral-800">
@@ -109,7 +109,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
           {(event.bag_policy || event.venues?.bag_policy) && (
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <Info className="text-red-600" size={20} />
+                <Info className="text-cyan-400" size={20} />
                 <h3 className="text-lg font-bold text-white">Bag Policy</h3>
               </div>
               <div className="text-neutral-300 leading-relaxed whitespace-pre-wrap bg-neutral-800/50 p-6 rounded-2xl border border-neutral-800">
@@ -121,7 +121,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
           {event.acts && event.acts.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <Music className="text-red-600" size={20} />
+                <Music className="text-cyan-400" size={20} />
                 <h3 className="text-lg font-bold text-white">Lineup</h3>
               </div>
               <div className="space-y-3">

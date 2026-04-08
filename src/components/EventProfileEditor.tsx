@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../AuthContext';
-import { Event } from '../types';
+import { AppEvent } from '../types';
 import { Save, Loader2, Eye, Image as ImageIcon, Trash2, MapPin } from 'lucide-react';
 import ProfilePreviewModal from './ProfilePreviewModal';
 import { getDateFromDate, getTimeFromDate } from '../lib/utils';
 import ImageUpload from './ImageUpload';
-import StockImagePicker from './StockImagePicker';
+import { checkOverlap } from '../lib/eventUtils';
+import { ConfirmationModal } from './ui/ConfirmationModal';
+import { useEventValidation } from '../lib/hooks/useEventValidation';
 
 export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSuccess }: { eventId: string, onDirtyChange?: (dirty: boolean) => void, onSaveSuccess?: () => void }) {
   const { user, profile } = useAuth();
   const isAdmin = profile?.roles.includes('admin');
-  const [event, setEvent] = useState<Partial<Event> | null>(null);
-  const [initialEvent, setInitialEvent] = useState<Partial<Event> | null>(null);
+  const [event, setEvent] = useState<Partial<AppEvent> | null>(null);
+  const [initialEvent, setInitialEvent] = useState<Partial<AppEvent> | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -21,7 +23,8 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
   const [dateError, setDateError] = useState<string | null>(null);
   const [eventDate, setEventDate] = useState('');
   const [startTime, setStartTime] = useState('20:00');
-  const [isStockPickerOpen, setIsStockPickerOpen] = useState(false);
+  const [allEvents, setAllEvents] = useState<AppEvent[]>([]);
+  const { overlapEvent, showOverlapModal, setShowOverlapModal, validateDate, triggerOverlapCheck } = useEventValidation(allEvents);
 
   useEffect(() => {
     if (eventDate) {
@@ -74,6 +77,13 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
       setEvent(eventWithDate);
       setInitialEvent(eventWithDate);
       
+      // Fetch all events for the venue to check for overlaps
+      const { data: events } = await supabase
+        .from('events')
+        .select('*')
+        .eq('venue_id', data.venue_id);
+      if (events) setAllEvents(events);
+
       if (eventWithDate.start_time) {
         const dateStr = getDateFromDate(eventWithDate.start_time);
         setEventDate(dateStr);
@@ -103,8 +113,17 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
     });
   }
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSave(e: React.FormEvent, skipOverlapCheck = false) {
+    if (e) e.preventDefault();
+    
+    if (!skipOverlapCheck) {
+      const time = startTime || '00:00';
+      const start = new Date(`${eventDate}T${time}:00`).toISOString();
+      const end = event?.end_time || new Date(new Date(start).getTime() + 60 * 60 * 1000).toISOString();
+      if (triggerOverlapCheck(event?.venue_id || '', start, end, eventId)) {
+        return;
+      }
+    }
     
     // Check if the event has already passed
     if (isPast) {
@@ -113,13 +132,9 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
     }
 
     // Check if the new date is in the past
-    const [year, month, day] = eventDate.split('-').map(Number);
-    const selectedDate = new Date(year, month - 1, day);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    if (selectedDate < today) {
-      setMessage({ type: 'error', text: 'Cannot set an event date to the past.' });
+    const dateError = validateDate(eventDate);
+    if (dateError) {
+      setMessage({ type: 'error', text: dateError });
       return;
     }
 
@@ -143,6 +158,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
         ticket_disclaimer: event.ticket_disclaimer,
         venue_confirmed: event.venue_confirmed,
         band_confirmed: event.band_confirmed,
+        has_multiple_acts: event.has_multiple_acts,
         is_public: event.is_public,
         is_published: event.is_published,
         hero_url: event.hero_url,
@@ -192,7 +208,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
     }
   }
 
-  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-red-600" /></div>;
+  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-red-500" /></div>;
 
   return (
     <div className="space-y-8">
@@ -279,14 +295,6 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
                   >
                     Upload Image
                   </ImageUpload>
-                  <button
-                    type="button"
-                    onClick={() => setIsStockPickerOpen(true)}
-                    className="bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-neutral-700 flex items-center justify-center gap-2"
-                  >
-                    <ImageIcon size={16} />
-                    Stock Library
-                  </button>
                   {event?.venue_hero_url && (
                     <button
                       type="button"
@@ -393,9 +401,23 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
                 <input
                   type="checkbox"
                   disabled={isPast && !isAdmin}
+                  checked={event?.has_multiple_acts || false}
+                  onChange={(e) => setEvent({ ...event, has_multiple_acts: e.target.checked })}
+                  className="w-5 h-5 rounded border-neutral-600 text-red-500 focus:ring-red-600 bg-neutral-900"
+                />
+                <div>
+                  <div className="font-medium text-white">Has Multiple Acts?</div>
+                  <div className="text-xs text-neutral-400">Does this event have more than one act?</div>
+                </div>
+              </label>
+
+              <label className="flex items-center gap-3 p-3 bg-neutral-800 rounded-xl border border-neutral-700 cursor-pointer hover:border-neutral-600 transition-all">
+                <input
+                  type="checkbox"
+                  disabled={isPast && !isAdmin}
                   checked={event?.is_public || false}
                   onChange={(e) => setEvent({ ...event, is_public: e.target.checked })}
-                  className="w-5 h-5 rounded border-neutral-600 text-red-600 focus:ring-red-600 bg-neutral-900"
+                  className="w-5 h-5 rounded border-neutral-600 text-red-500 focus:ring-red-600 bg-neutral-900"
                 />
                 <div>
                   <div className="font-medium text-white">Public Event</div>
@@ -409,7 +431,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
                   disabled={isPast && !isAdmin}
                   checked={event?.is_published || false}
                   onChange={(e) => setEvent({ ...event, is_published: e.target.checked })}
-                  className="w-5 h-5 rounded border-neutral-600 text-red-600 focus:ring-red-600 bg-neutral-900"
+                  className="w-5 h-5 rounded border-neutral-600 text-red-500 focus:ring-red-600 bg-neutral-900"
                 />
                 <div>
                   <div className="font-medium text-white">Published</div>
@@ -423,7 +445,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
                   disabled={isPast && !isAdmin}
                   checked={event?.venue_confirmed || false}
                   onChange={(e) => setEvent({ ...event, venue_confirmed: e.target.checked })}
-                  className="w-5 h-5 rounded border-neutral-600 text-red-600 focus:ring-red-600 bg-neutral-900"
+                  className="w-5 h-5 rounded border-neutral-600 text-red-500 focus:ring-red-600 bg-neutral-900"
                 />
                 <div>
                   <div className="font-medium text-white">Venue Confirmed</div>
@@ -437,7 +459,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
                   disabled={isPast && !isAdmin}
                   checked={event?.band_confirmed || false}
                   onChange={(e) => setEvent({ ...event, band_confirmed: e.target.checked })}
-                  className="w-5 h-5 rounded border-neutral-600 text-red-600 focus:ring-red-600 bg-neutral-900"
+                  className="w-5 h-5 rounded border-neutral-600 text-red-500 focus:ring-red-600 bg-neutral-900"
                 />
                 <div>
                   <div className="font-medium text-white">Band Confirmed</div>
@@ -447,18 +469,18 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
             </div>
           </div>
         </div>
+        <ConfirmationModal
+          isOpen={showOverlapModal}
+          onClose={() => setShowOverlapModal(false)}
+          onConfirm={() => {
+            setShowOverlapModal(false);
+            handleSave(null as any, true);
+          }}
+          title="Event Overlap Detected"
+          message={`This event overlaps with "${overlapEvent?.title}" at ${overlapEvent?.start_time ? new Date(overlapEvent.start_time).toLocaleDateString() : 'unknown date'}. Are you sure you want to continue?`}
+          confirmText="Save Anyway"
+        />
       </form>
-
-      <StockImagePicker 
-        isOpen={isStockPickerOpen}
-        onClose={() => setIsStockPickerOpen(false)}
-        type="hero"
-        category="generic"
-        onSelect={(img) => {
-          setEvent(prev => ({ ...prev, hero_url: img.url }));
-          setIsStockPickerOpen(false);
-        }}
-      />
     </div>
   );
 }

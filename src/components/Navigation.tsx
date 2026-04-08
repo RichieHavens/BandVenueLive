@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { useNavigationContext } from '../context/NavigationContext';
 import { useAuth } from '../AuthContext';
+import { cn } from '../lib/utils';
 
 export default function Navigation() {
   const { user, profile, activeRole, setActiveRole, signOut } = useAuth();
@@ -25,7 +26,7 @@ export default function Navigation() {
     venue_manager: 'Venue Manager',
     band_manager: 'Band Manager',
     musician: 'Musician',
-    event_attendee: 'Attendee',
+    guest: 'Guest',
     syndication_manager: 'Syndicator'
   };
 
@@ -38,7 +39,7 @@ export default function Navigation() {
             className="h-12 md:h-14 w-auto flex items-center cursor-pointer hover:opacity-80 transition-opacity"
           >
             <img 
-              src="/BandVenue_Logo.png" 
+              src="/BandVenue_Navbar_Micro_Final.png" 
               alt="BandVenue Logo" 
               className="h-full w-auto object-contain"
               referrerPolicy="no-referrer"
@@ -51,52 +52,54 @@ export default function Navigation() {
             <button
               key={tab.id}
               onClick={() => handleTabChange(tab.id)}
-              className={`group relative flex flex-col md:flex-row items-center gap-0.5 md:gap-1.5 px-2 py-2 rounded-xl transition-all shrink-0 ${
+              className={cn(
+                "group relative flex flex-col md:flex-row items-center gap-0.5 md:gap-1.5 px-3 py-2 rounded-xl transition-all shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400",
                 activeTab === tab.id 
-                  ? 'text-red-600 bg-red-600/5' 
-                  : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800/50'
-              }`}
+                  ? 'text-white bg-neutral-800' 
+                  : 'text-neutral-400 hover:text-neutral-300 hover:bg-neutral-800/50'
+              )}
             >
-              <tab.icon size={16} className={activeTab === tab.id ? 'animate-pulse' : ''} />
-              <span className="text-[9px] md:text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">{tab.label}</span>
+              <tab.icon size={18} className={cn("transition-colors duration-200", activeTab === tab.id ? 'text-cyan-400' : 'text-neutral-400 group-hover:text-cyan-400 group-focus:text-cyan-400')} />
+              <span className="text-[10px] md:text-xs font-bold uppercase tracking-wider whitespace-nowrap">{tab.label}</span>
               {activeTab === tab.id && (
                 <motion.div 
                   layoutId="activeTab"
-                  className="absolute -bottom-[13px] md:-bottom-[21px] left-0 right-0 h-0.5 bg-red-600 shadow-[0_0_8px_rgba(249,115,22,0.5)]"
+                  className="absolute -bottom-[13px] md:-bottom-[21px] left-0 right-0 h-0.5 bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]"
                 />
               )}
             </button>
           ))}
           
           <button
-            onClick={user ? signOut : () => handleTabChange('login')}
-            className="flex flex-col md:hidden items-center gap-0.5 px-2 py-2 text-neutral-500 hover:text-red-500 transition-colors shrink-0"
+            onClick={user ? () => handleTabChange('logout') : () => handleTabChange('login')}
+            className="flex flex-col md:hidden items-center gap-0.5 px-3 py-2 text-neutral-400 hover:text-cyan-400 transition-colors shrink-0"
           >
-            {user ? <LogOut size={16} /> : <UserCircle size={16} />}
-            <span className="text-[9px] font-bold uppercase tracking-wider whitespace-nowrap">{user ? 'Logout' : 'Login'}</span>
+            {user ? <LogOut size={18} className="text-neutral-400 hover:text-cyan-400" /> : <UserCircle size={18} className="text-neutral-400 hover:text-cyan-400" />}
+            <span className="text-[10px] font-bold uppercase tracking-wider whitespace-nowrap">{user ? 'Logout' : 'Login'}</span>
           </button>
         </div>
 
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           {user && profile && profile.roles.length > 1 && (
             <div className="relative">
               <button 
                 onClick={() => setIsRoleSwitcherOpen(!isRoleSwitcherOpen)}
-                className={`flex items-center gap-2.5 px-4 py-2 rounded-2xl border-2 transition-all shadow-lg ${
+                className={cn(
+                  "flex items-center gap-2.5 px-4 py-2 rounded-xl border transition-all",
                   isRoleSwitcherOpen
-                    ? 'bg-red-600 border-red-500 text-white shadow-red-600/20'
-                    : 'bg-neutral-800 border-neutral-700 text-neutral-300 hover:border-red-600/50 hover:bg-neutral-700'
-                }`}
+                    ? 'bg-neutral-800 border-cyan-400 text-white'
+                    : 'bg-neutral-900 border-neutral-700 text-neutral-300 hover:border-cyan-400/50'
+                )}
                 title="What hat are you wearing now?"
               >
-                <HardHat size={20} className={isRoleSwitcherOpen ? 'text-white' : 'text-red-500'} />
+                <HardHat size={18} className={cn("transition-colors duration-200", isRoleSwitcherOpen ? 'text-cyan-400' : 'text-neutral-400')} />
                 <div className="flex flex-col items-start leading-none hidden md:flex">
                   <span className="text-[9px] font-black uppercase tracking-tighter opacity-70">Active Role</span>
                   <span className="text-[11px] font-bold uppercase tracking-widest">
                     {activeRole ? roleLabels[activeRole] : 'Select'}
                   </span>
                 </div>
-                <ChevronDown size={14} className={`transition-transform duration-300 ${isRoleSwitcherOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown size={14} className={cn("transition-transform duration-300", isRoleSwitcherOpen ? 'rotate-180' : '')} />
               </button>
 
               <AnimatePresence>
@@ -107,10 +110,10 @@ export default function Navigation() {
                       initial={{ opacity: 0, y: -10, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                      className="absolute right-0 bottom-full mb-3 md:bottom-auto md:top-full md:mt-3 w-56 bg-neutral-900 border-2 border-neutral-800 rounded-[2rem] shadow-2xl z-50 overflow-hidden p-3"
+                      className="absolute right-0 bottom-full mb-3 md:bottom-auto md:top-full md:mt-3 w-56 bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl z-50 overflow-hidden p-2"
                     >
-                      <div className="px-4 py-2 mb-2 border-b border-neutral-800">
-                        <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em]">Switch Your Hat</p>
+                      <div className="px-4 py-2 mb-1 border-b border-neutral-800">
+                        <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Switch Your Hat</p>
                       </div>
                       <div className="space-y-1">
                         {profile.roles.map((role) => (
@@ -119,19 +122,20 @@ export default function Navigation() {
                             onClick={() => {
                               setActiveRole(role);
                               setIsRoleSwitcherOpen(false);
-                              handleTabChange('events');
+                              handleTabChange('dashboard');
                             }}
-                            className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl transition-all ${
+                            className={cn(
+                              "w-full flex items-center justify-between px-4 py-2.5 rounded-lg transition-all",
                               activeRole === role 
-                                ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' 
+                                ? 'bg-neutral-800 text-white' 
                                 : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
-                            }`}
+                            )}
                           >
                             <div className="flex items-center gap-3">
-                              <HardHat size={14} className={activeRole === role ? 'text-white' : 'text-red-600'} />
+                              <HardHat size={14} className={cn("transition-colors duration-200", activeRole === role ? 'text-cyan-400' : 'text-neutral-400')} />
                               <span className="text-xs font-bold uppercase tracking-wider">{roleLabels[role] || role}</span>
                             </div>
-                            {activeRole === role && <CheckCircle size={14} />}
+                            {activeRole === role && <CheckCircle size={14} className="text-cyan-400" />}
                           </button>
                         ))}
                       </div>
@@ -146,15 +150,16 @@ export default function Navigation() {
             <div className="relative">
               <button 
                 onClick={() => setIsDashboardOpen(!isDashboardOpen)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition-all ${
+                className={cn(
+                  "flex items-center gap-1.5 px-3 py-2 rounded-xl border transition-all",
                   managementTabs.some(t => t.id === activeTab) || isDashboardOpen
-                    ? 'bg-red-600 border-red-600 text-white shadow-lg shadow-red-600/20'
-                    : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-600'
-                }`}
+                    ? 'bg-neutral-800 border-neutral-600 text-white'
+                    : 'bg-neutral-900 border-neutral-700 text-neutral-400 hover:border-neutral-600'
+                )}
               >
-                <LayoutDashboard size={16} />
-                <span className="text-[11px] font-bold uppercase tracking-widest">Admin</span>
-                <ChevronDown size={12} className={`transition-transform duration-300 ${isDashboardOpen ? 'rotate-180' : ''}`} />
+                <LayoutDashboard size={18} className="text-neutral-400" />
+                <span className="text-[11px] font-bold uppercase tracking-widest hidden md:inline">Admin</span>
+                <ChevronDown size={12} className={cn("transition-transform duration-300", isDashboardOpen ? 'rotate-180' : '')} />
               </button>
 
               <AnimatePresence>
@@ -167,8 +172,8 @@ export default function Navigation() {
                       exit={{ opacity: 0, y: -10, scale: 0.95 }}
                       className="absolute right-0 bottom-full mb-2 md:bottom-auto md:top-full md:mt-2 w-64 bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl z-50 overflow-hidden p-2"
                     >
-                      <div className="px-3 py-2 mb-2 border-b border-neutral-800">
-                        <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest">Management Tools</p>
+                      <div className="px-3 py-2 mb-1 border-b border-neutral-800">
+                        <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Management Tools</p>
                       </div>
                       {managementTabs.map((tab) => (
                         <button
@@ -177,13 +182,14 @@ export default function Navigation() {
                             handleTabChange(tab.id);
                             setIsDashboardOpen(false);
                           }}
-                          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${
+                          className={cn(
+                            "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all",
                             activeTab === tab.id 
-                              ? 'bg-red-600/10 text-red-600' 
+                              ? 'bg-neutral-800 text-white' 
                               : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
-                          }`}
+                          )}
                         >
-                          <tab.icon size={16} />
+                          <tab.icon size={16} className="text-neutral-400" />
                           <span className="text-sm font-medium">{tab.label}</span>
                         </button>
                       ))}
@@ -196,15 +202,16 @@ export default function Navigation() {
 
           <button 
             onClick={() => setIsAboutOpen(true)}
-            className="p-2 text-neutral-500 hover:text-red-600 hover:bg-neutral-800 rounded-lg transition-all"
+            className="p-2 text-neutral-400 hover:text-cyan-400 hover:bg-neutral-800 rounded-lg transition-all"
             title="About BandVenue"
           >
             <Info size={20} />
           </button>
+          
           {user ? (
             <button 
-              onClick={signOut}
-              className="hidden md:flex items-center gap-2 px-3 py-1.5 text-neutral-500 hover:text-red-500 hover:bg-red-500/5 rounded-xl transition-all border border-transparent hover:border-red-500/20"
+              onClick={() => handleTabChange('logout')}
+              className="hidden md:flex items-center gap-2 px-3 py-2 text-neutral-400 hover:text-cyan-400 hover:bg-neutral-800 rounded-xl transition-all border border-transparent"
               title="Logout"
             >
               <LogOut size={18} />
@@ -213,7 +220,7 @@ export default function Navigation() {
           ) : (
             <button 
               onClick={() => handleTabChange('login')}
-              className="hidden md:flex items-center gap-2 px-3 py-1.5 text-neutral-500 hover:text-red-500 hover:bg-red-500/5 rounded-xl transition-all border border-transparent hover:border-red-500/20"
+              className="hidden md:flex items-center gap-2 px-3 py-2 text-neutral-400 hover:text-cyan-400 hover:bg-neutral-800 rounded-xl transition-all border border-transparent"
               title="Login"
             >
               <UserCircle size={18} />

@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../AuthContext';
-import { Event, Venue, Band } from '../types';
+import { AppEvent, Venue, Band } from '../types';
 import { Loader2, Trash2, Merge, AlertCircle, CheckCircle, ChevronRight, Info, History, Clock } from 'lucide-react';
 import { formatDate, formatTime } from '../lib/utils';
+import { Button } from '../components/ui/Button';
+import { Card } from '../components/ui/Card';
 
 interface DuplicateGroup {
   key: string;
-  events: Event[];
+  events: AppEvent[];
 }
 
 interface MergeLog {
@@ -77,7 +79,7 @@ export default function DeduplicationTool() {
       if (!allEvents) return;
 
       // Group events by title, venue, and date
-      const groupsMap: Record<string, Event[]> = {};
+      const groupsMap: Record<string, AppEvent[]> = {};
       
       allEvents.forEach(event => {
         const eventStartTime = event.start_time || event.acts?.[0]?.start_time || event.created_at;
@@ -107,7 +109,7 @@ export default function DeduplicationTool() {
     }
   }
 
-  async function mergeEvents(masterEvent: Event, duplicates: Event[]) {
+  async function mergeEvents(masterEvent: AppEvent, duplicates: AppEvent[]) {
     setMerging(masterEvent.id);
     setMessage(null);
     
@@ -226,29 +228,26 @@ export default function DeduplicationTool() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-xl font-bold">Event Deduplication</h3>
-          <p className="text-neutral-500 text-sm mt-1">Identify and merge duplicate events based on title, venue, and date.</p>
+          <h3 className="text-xl font-bold text-white">Event Deduplication</h3>
+          <p className="text-neutral-400 text-sm mt-1">Identify and merge duplicate events based on title, venue, and date.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button 
+          <Button 
+            variant={showHistory ? 'primary' : 'secondary'}
             onClick={() => setShowHistory(!showHistory)}
-            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 border ${
-              showHistory 
-                ? 'bg-red-600/10 border-red-600/50 text-red-600' 
-                : 'bg-neutral-800 border-neutral-700 text-neutral-400 hover:border-neutral-600'
-            }`}
+            className="flex items-center gap-2"
           >
             <History size={16} />
             History
-          </button>
-          <button 
+          </Button>
+          <Button 
             onClick={fetchPotentialDuplicates}
             disabled={loading}
-            className="bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 border border-neutral-700"
+            className="flex items-center gap-2"
           >
             {loading ? <Loader2 className="animate-spin" size={16} /> : <Merge size={16} />}
             Refresh
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -256,7 +255,7 @@ export default function DeduplicationTool() {
         <motion.div 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-neutral-900/50 border border-neutral-800 rounded-3xl p-6 space-y-4"
+          className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6 space-y-4"
         >
           <div className="flex items-center gap-2 text-neutral-400 font-bold uppercase tracking-widest text-xs">
             <Clock size={14} />
@@ -264,20 +263,20 @@ export default function DeduplicationTool() {
           </div>
           <div className="space-y-2">
             {recentMerges.length === 0 ? (
-              <p className="text-neutral-500 text-sm italic">No recent merges found.</p>
+              <p className="text-neutral-400 text-sm italic">No recent merges found.</p>
             ) : (
               recentMerges.map(log => (
                 <div key={log.id} className="flex items-center justify-between p-3 bg-neutral-800/50 rounded-xl border border-neutral-700/50">
                   <div className="space-y-1">
                     <p className="text-sm font-bold text-neutral-200">
-                      Merged into: <span className="text-red-600">{log.changes.master_title}</span>
+                      Merged into: <span className="text-cyan-400">{log.changes.master_title}</span>
                     </p>
-                    <p className="text-[10px] text-neutral-500 font-mono">
+                    <p className="text-[10px] text-neutral-400 font-mono">
                       {log.changes.duplicate_ids.length} duplicates removed • {log.changes.details.acts_moved} acts moved
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] text-neutral-500">{formatDate(log.created_at)} at {formatTime(log.created_at)}</p>
+                    <p className="text-[10px] text-neutral-400">{formatDate(log.created_at)} at {formatTime(log.created_at)}</p>
                   </div>
                 </div>
               ))
@@ -295,26 +294,26 @@ export default function DeduplicationTool() {
 
       {loading ? (
         <div className="flex justify-center py-20">
-          <Loader2 className="animate-spin text-red-600" size={48} />
+          <Loader2 className="animate-spin text-cyan-400" size={48} />
         </div>
       ) : groups.length === 0 ? (
-        <div className="text-center py-20 bg-neutral-800/50 rounded-3xl border border-dashed border-neutral-700">
+        <Card className="text-center py-20">
           <Info className="mx-auto text-neutral-600 mb-4" size={48} />
           <h4 className="text-lg font-bold text-neutral-400">No duplicates found</h4>
-          <p className="text-neutral-500 text-sm">Everything looks clean!</p>
-        </div>
+          <p className="text-neutral-400 text-sm">Everything looks clean!</p>
+        </Card>
       ) : (
         <div className="space-y-4">
           {groups.map((group, idx) => (
-            <div key={group.key} className="bg-neutral-800 rounded-3xl border border-neutral-700 overflow-hidden">
-              <div className="p-6 border-b border-neutral-700 bg-neutral-800/50 flex justify-between items-center">
+            <Card key={group.key} className="overflow-hidden">
+              <div className="p-6 border-b border-neutral-700 bg-neutral-900/50 flex justify-between items-center">
                 <div>
-                  <h4 className="font-bold text-lg">{group.events[0].title}</h4>
-                  <p className="text-neutral-500 text-sm">
+                  <h4 className="font-bold text-lg text-white">{group.events[0].title}</h4>
+                  <p className="text-neutral-400 text-sm">
                     {venues[group.events[0].venue_id] || 'Unknown Venue'} • {formatDate(group.events[0].start_time)}
                   </p>
                 </div>
-                <div className="px-3 py-1 bg-red-600/10 text-red-600 rounded-full text-xs font-bold uppercase tracking-widest">
+                <div className="px-3 py-1 bg-cyan-400/10 text-cyan-400 rounded-full text-xs font-bold uppercase tracking-widest">
                   {group.events.length} Duplicates
                 </div>
               </div>
@@ -334,24 +333,24 @@ export default function DeduplicationTool() {
                           <span className="text-neutral-600">•</span>
                           <span>{event.start_time ? formatTime(event.start_time) : 'No Time'}</span>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-neutral-500">
+                        <div className="flex items-center gap-2 text-xs text-neutral-400">
                           <span>Created: {formatDate(event.created_at)} at {formatTime(event.created_at)}</span>
                           {event.is_published && <span className="px-2 py-0.5 bg-green-500/10 text-green-500 rounded text-[10px] font-bold uppercase">Published</span>}
                         </div>
                       </div>
-                      <button
+                      <Button
                         onClick={() => mergeEvents(event, group.events)}
                         disabled={!!merging}
-                        className="w-40 h-12 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 shrink-0"
+                        className="w-40"
                       >
                         {merging === event.id ? <Loader2 className="animate-spin" size={14} /> : <Merge size={14} />}
                         Keep as Master
-                      </button>
+                      </Button>
                     </div>
                   ))}
                 </div>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
       )}

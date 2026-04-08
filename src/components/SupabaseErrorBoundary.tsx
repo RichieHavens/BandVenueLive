@@ -54,7 +54,7 @@ export default class SupabaseErrorBoundary extends Component<Props, State> {
         <div className="min-h-screen bg-neutral-950 flex items-center justify-center p-4">
           <div className="max-w-md w-full bg-neutral-900 border border-neutral-800 rounded-[2.5rem] p-8 shadow-2xl text-center">
             <div className="w-20 h-20 bg-red-600/10 rounded-3xl flex items-center justify-center mx-auto mb-8">
-              <ShieldAlert className="text-red-600" size={40} />
+              <ShieldAlert className="text-red-500" size={40} />
             </div>
             
             <h2 className="text-2xl font-bold text-white mb-4">
@@ -69,7 +69,7 @@ export default class SupabaseErrorBoundary extends Component<Props, State> {
 
             {this.state.errorInfo && (
               <div className="mb-8 p-4 bg-black/40 rounded-2xl border border-neutral-800 text-left overflow-hidden">
-                <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Error Details</p>
+                <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">Error Details</p>
                 <div className="font-mono text-[10px] text-red-400/80 break-all whitespace-pre-wrap">
                   {JSON.stringify(this.state.errorInfo, null, 2)}
                 </div>

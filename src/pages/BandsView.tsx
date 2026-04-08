@@ -2,9 +2,10 @@ import React, { useState, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { Band } from '../types';
 import { Search, Loader2, Music, Filter, Star } from 'lucide-react';
-import { STOCK_IMAGES } from '../constants/stockImages';
 import { formatDate } from '../lib/utils';
 import ProfilePreviewModal from '../components/ProfilePreviewModal';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
 
 export function BandsView() {
   const [bands, setBands] = useState<Band[]>([]);
@@ -51,8 +52,6 @@ export function BandsView() {
   const filtered = bands.filter(b => {
     const matchesSearch = b.name.toLowerCase().includes(search.toLowerCase());
     const matchesGenre = selectedGenre === 'All' || (b as any).genres?.includes(selectedGenre);
-    // Note: Favorites logic would require a 'favorites' table or similar, 
-    // for now we'll just mock it or skip if not implemented.
     return matchesSearch && matchesGenre;
   });
 
@@ -60,55 +59,56 @@ export function BandsView() {
     <div className="space-y-8">
       <div className="flex flex-col gap-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <h2 className="text-4xl font-bold tracking-tight">Local Bands</h2>
+          <h2 className="text-4xl font-bold tracking-tight text-white">Local Bands</h2>
           <div className="relative w-full md:w-72">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={18} />
-            <input
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
+            <Input
               type="text"
               placeholder="Enter Band Name"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-neutral-900 border border-neutral-800 rounded-xl py-2 pl-12 pr-4 text-sm focus:ring-2 focus:ring-red-600 outline-none transition-all"
+              className="pl-12"
             />
           </div>
         </div>
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <Filter size={18} className="text-neutral-500" />
+            <Filter size={18} className="text-neutral-400" />
             <select
               value={selectedGenre}
               onChange={(e) => setSelectedGenre(e.target.value)}
-              className="bg-neutral-900 border border-neutral-800 rounded-xl py-2 px-4 text-sm focus:ring-2 focus:ring-red-600 outline-none"
+              className="bg-neutral-800 border border-neutral-700 rounded-xl py-2 px-4 text-sm focus:ring-2 focus:ring-cyan-400 outline-none text-white"
             >
               {allGenres.map(g => <option key={g} value={g}>{g}</option>)}
             </select>
           </div>
-          <button
+          <Button
+            variant={showFavorites ? 'primary' : 'secondary'}
             onClick={() => setShowFavorites(!showFavorites)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all ${showFavorites ? 'bg-red-600/20 border-red-600 text-red-500' : 'bg-neutral-900 border-neutral-800 text-neutral-400 hover:text-white'}`}
+            className="flex items-center gap-2"
           >
             <Star size={18} fill={showFavorites ? 'currentColor' : 'none'} />
             <span className="text-sm font-medium">Favorites</span>
-          </button>
+          </Button>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-20"><Loader2 className="animate-spin text-red-600" size={48} /></div>
+        <div className="flex justify-center py-20"><Loader2 className="animate-spin text-cyan-400" size={48} /></div>
       ) : filtered.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {filtered.map((band) => {
-            const defaultBandLogo = STOCK_IMAGES.find(img => img.type === 'logo' && img.category === 'band')?.url;
+            const defaultBandLogo = `https://picsum.photos/seed/band-logo-${band.id}/200/200`;
             return (
               <div 
                 key={band.id} 
-                className="flex gap-6 p-6 bg-neutral-900 border border-neutral-800 rounded-3xl hover:border-neutral-700 transition-all group cursor-pointer"
+                className="flex gap-6 p-6 bg-neutral-800/50 border border-neutral-700 rounded-3xl hover:border-neutral-600 transition-all group cursor-pointer"
                 onClick={() => {
                   setSelectedBand(band);
                   setIsPreviewOpen(true);
                 }}
               >
-                <div className="w-32 h-32 rounded-2xl bg-neutral-800 overflow-hidden shrink-0">
+                <div className="w-32 h-32 rounded-2xl bg-neutral-900 overflow-hidden shrink-0">
                   <img 
                     src={band.logo_url || band.images?.[0] || defaultBandLogo} 
                     alt={band.name} 
@@ -119,12 +119,12 @@ export function BandsView() {
                 <div>
                   <div className="flex flex-wrap gap-1 mb-2">
                     {(band as any).genres?.map((g: string) => (
-                      <span key={g} className="text-[10px] font-bold uppercase tracking-widest text-red-600/70">{g}</span>
+                      <span key={g} className="text-[10px] font-bold uppercase tracking-widest text-cyan-400/70">{g}</span>
                     ))}
                   </div>
-                  <h3 className="text-2xl font-bold mb-1">{band.name}</h3>
+                  <h3 className="text-2xl font-bold mb-1 text-white">{band.name}</h3>
                   {(band.city || band.state) && (
-                    <p className="text-neutral-500 text-sm mb-3">
+                    <p className="text-neutral-400 text-sm mb-3">
                       {[band.city, band.state].filter(Boolean).join(', ')}
                     </p>
                   )}
@@ -141,9 +141,9 @@ export function BandsView() {
           })}
         </div>
       ) : (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-12 text-center">
-          <Music className="mx-auto text-neutral-700 mb-4" size={48} />
-          <p className="text-neutral-500">No bands found.</p>
+        <div className="bg-neutral-800/50 border border-neutral-700 rounded-3xl p-12 text-center">
+          <Music className="mx-auto text-neutral-600 mb-4" size={48} />
+          <p className="text-neutral-400">No bands found.</p>
         </div>
       )}
 

@@ -1,14 +1,19 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useAuth } from '../AuthContext';
 import { supabase } from '../lib/supabase';
-import { Venue, Band, Event } from '../types';
+import { Venue, Band, AppEvent } from '../types';
 import { 
   Loader2, Trash2, ShieldCheck, Globe, Sparkles, Settings, 
   MapPin, Music, Calendar, Clock, Search, Filter, UserCircle, Heart,
   Home, Info, LayoutDashboard, ChevronDown, CheckCircle, LayoutGrid, List, X, Upload, Plus, Archive, RefreshCcw, Copy, Edit2
 } from 'lucide-react';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Card } from '../components/ui/Card';
+import { theme } from '../lib/theme';
+import { cn } from '../lib/utils';
 import VenueProfileEditor from '../components/VenueProfileEditor';
-import BandProfileEditor from '../components/BandProfileEditor';
+import { BandProfileEditor } from '../components/BandProfileEditor';
 import EventEditor from '../components/EventEditor';
 import DeduplicationTool from '../components/DeduplicationTool';
 import PeopleManager from '../components/PeopleManager';
@@ -16,7 +21,7 @@ import { ScraperView } from './ScraperView';
 import { formatDate, formatTime } from '../lib/utils';
 
 export function AdminView() {
-  const { user, profile, refreshProfile } = useAuth();
+  const { user, profile, activeRole, refreshProfile } = useAuth();
   const [activeSubTab, setActiveSubTab] = useState('venues');
   const [genres, setGenres] = useState<any[]>([]);
   const [loadingGenres, setLoadingGenres] = useState(false);
@@ -28,7 +33,7 @@ export function AdminView() {
   const [venueFilter, setVenueFilter] = useState('');
   const [bands, setBands] = useState<Band[]>([]);
   const [loadingBands, setLoadingBands] = useState(false);
-  const [events, setEvents] = useState<Event[]>([]);
+  const [events, setEvents] = useState<AppEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [showPastEvents, setShowPastEvents] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{ message: string, onConfirm: () => void } | null>(null);
@@ -144,14 +149,10 @@ export function AdminView() {
 
     return filtered;
   }, [events, eventSearch, eventFilter, showPastEvents]);
-  const [copyEvent, setCopyEvent] = useState<Event | undefined>(undefined);
+  const [copyEvent, setCopyEvent] = useState<AppEvent | undefined>(undefined);
   const [showCopyEditor, setShowCopyEditor] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSeeding, setIsSeeding] = useState(false);
-  const [stockImages, setStockImages] = useState<any[]>([]);
-  const [loadingStock, setLoadingStock] = useState(false);
-  const [uploadingHero, setUploadingHero] = useState(false);
-  const heroFileInputRef = useRef<HTMLInputElement>(null);
   const venueReport = useMemo(() => {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -225,97 +226,9 @@ export function AdminView() {
     if (activeSubTab === 'venues') fetchVenues();
     if (activeSubTab === 'bands') fetchBands();
     if (activeSubTab === 'events' || activeSubTab === 'venue_reports' || activeSubTab === 'band_reports') fetchEvents();
-    if (activeSubTab === 'stock') fetchStockImages();
     if (activeSubTab === 'venue_reports') fetchVenues();
     if (activeSubTab === 'band_reports') fetchBands();
   }, [activeSubTab]);
-
-  async function handleHeroUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setUploadingHero(true);
-    try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `home-hero-${Date.now()}.${fileExt}`;
-      const filePath = `heroes/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('images')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('images')
-        .getPublicUrl(filePath);
-
-      const { error: dbError } = await supabase.from('stock_images').insert({
-        url: publicUrl,
-        thumbnail: publicUrl,
-        label: 'Home Page Hero',
-        type: 'hero',
-        category: 'home',
-        created_at: new Date().toISOString()
-      });
-
-      if (dbError) throw dbError;
-
-      alert('Home Page Hero updated successfully!');
-      fetchStockImages();
-    } catch (error: any) {
-      console.error('Error uploading hero image:', error);
-      alert(error.message || 'Error uploading image');
-    } finally {
-      setUploadingHero(false);
-      if (e.target) e.target.value = ''; // Reset input
-    }
-  }
-
-  async function fetchStockImages() {
-    setLoadingStock(true);
-    const { data, error } = await supabase.from('stock_images').select('*').order('created_at', { ascending: false });
-    if (data) setStockImages(data);
-    setLoadingStock(false);
-  }
-
-  async function handleAddStockImage() {
-    const url = prompt('Enter image URL:');
-    if (!url) return;
-    const label = prompt('Enter label:');
-    const type = prompt('Enter type (hero/logo):', 'hero');
-    const category = prompt('Enter category (venue/band/generic):', 'generic');
-
-    const { error } = await supabase.from('stock_images').insert({
-      url,
-      thumbnail: url, // Simplified for now
-      label,
-      type,
-      category,
-      created_at: new Date().toISOString()
-    });
-
-    if (error) alert(error.message);
-    else fetchStockImages();
-  }
-
-  async function handleDeleteStockImage(id: string) {
-    setConfirmDialog({
-      message: 'Are you sure you want to delete this image?',
-      onConfirm: async () => {
-        try {
-          const { error } = await supabase.from('stock_images').delete().eq('id', id);
-          if (error) throw error;
-          fetchStockImages();
-        } catch (error: any) {
-          console.error('Error deleting image:', error);
-          setErrorMessage(error.message || 'Failed to delete image');
-        } finally {
-          setConfirmDialog(null);
-        }
-      }
-    });
-  }
 
   async function handleDeleteOrArchiveBand(id: string, isArchived: boolean) {
     if (isArchived) {
@@ -446,7 +359,7 @@ export function AdminView() {
     setLoadingVenues(true);
     const { data } = await supabase
       .from('venues')
-      .select('*, profiles!updated_by(first_name, last_name, email)')
+      .select('*, profiles!updated_by(first_name, last_name, email), manager:profiles!manager_id(first_name, last_name)')
       .order('name');
     if (data) setVenues(data);
     setLoadingVenues(false);
@@ -497,7 +410,7 @@ export function AdminView() {
     });
   }
 
-  const handleCopyAsNew = (event: Event) => {
+  const handleCopyAsNew = (event: AppEvent) => {
     const { id, created_at, updated_at, updated_by, ...rest } = event;
     const copiedEvent = {
       ...rest,
@@ -663,7 +576,6 @@ export function AdminView() {
     { id: 'venues', label: 'Venues' },
     { id: 'bands', label: 'Bands' },
     { id: 'people', label: 'People' },
-    { id: 'stock', label: 'Images' },
     { id: 'scraper', label: 'Uploads' },
     { id: 'sponsors', label: 'Sponsors' },
     { id: 'events', label: 'Events' },
@@ -676,6 +588,21 @@ export function AdminView() {
   ];
 
   const activeTabLabel = tabs.find(t => t.id === activeSubTab)?.label || 'Select Tab';
+
+  if (activeRole !== 'admin') {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-8">
+        <div className="bg-red-600/10 p-6 rounded-3xl mb-6">
+          <ShieldCheck className="text-red-500" size={48} />
+        </div>
+        <h2 className="text-3xl font-bold mb-4">Access Denied</h2>
+        <p className="text-neutral-400 max-w-md mx-auto leading-relaxed">
+          You do not have administrative privileges to access this dashboard. 
+          If you believe this is an error, please contact the system administrator.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8">
@@ -734,7 +661,7 @@ export function AdminView() {
                 className={`w-full px-4 py-3 text-sm font-bold uppercase tracking-widest transition-all text-left ${
                   activeSubTab === tab.id 
                     ? 'bg-red-600 text-white' 
-                    : 'text-neutral-500 hover:bg-neutral-800 hover:text-white'
+                    : 'text-neutral-400 hover:bg-neutral-800 hover:text-white'
                 }`}
               >
                 {tab.label}
@@ -749,150 +676,152 @@ export function AdminView() {
             <PeopleManager />
           )}
           {activeSubTab === 'genres' && (
-            <div className="space-y-6">
+            <Card className="space-y-6 p-8">
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-bold">Manage Genres</h3>
                 {!isAddingGenre ? (
-                  <button 
+                  <Button 
                     onClick={() => setIsAddingGenre(true)}
-                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2"
                   >
                     <Plus size={16} /> Add Genre
-                  </button>
+                  </Button>
                 ) : (
                   <form onSubmit={handleAddGenre} className="flex gap-2">
-                    <input
+                    <Input
                       autoFocus
                       type="text"
                       value={newGenreName}
                       onChange={(e) => setNewGenreName(e.target.value)}
                       placeholder="Genre name..."
-                      className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-red-600 outline-none"
                     />
-                    <button 
+                    <Button 
                       type="submit"
-                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all"
                     >
                       Save
-                    </button>
-                    <button 
+                    </Button>
+                    <Button 
                       type="button"
+                      variant="secondary"
                       onClick={() => {
                         setIsAddingGenre(false);
                         setNewGenreName('');
                       }}
-                      className="bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all"
                     >
                       Cancel
-                    </button>
+                    </Button>
                   </form>
                 )}
               </div>
               {loadingGenres ? (
-                <div className="flex justify-center py-12"><Loader2 className="animate-spin text-red-600" size={32} /></div>
+                <div className="flex justify-center py-12"><Loader2 className="animate-spin text-cyan-400" size={32} /></div>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {genres.map((g) => (
-                    <div key={g.id} className="p-4 bg-neutral-800 rounded-2xl flex justify-between items-center group">
-                      <span className="font-medium">{g.name}</span>
-                      <button 
+                    <Card key={g.id} className="flex justify-between items-center p-4 bg-neutral-800/50">
+                      <span className="font-medium text-white">{g.name}</span>
+                      <Button 
+                        variant="ghost"
+                        size="sm"
                         onClick={() => handleDeleteGenre(g.id)}
-                        className="text-neutral-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                        className="text-neutral-400 hover:text-red-500"
                       >
                         <Trash2 size={14} />
-                      </button>
-                    </div>
+                      </Button>
+                    </Card>
                   ))}
                   {genres.length === 0 && (
-                    <div className="col-span-full text-center text-neutral-500 py-8">No genres found.</div>
+                    <div className="col-span-full text-center text-neutral-400 py-8">No genres found.</div>
                   )}
                 </div>
               )}
-            </div>
+            </Card>
           )}
           {activeSubTab === 'venue_reports' && (
             <div className="space-y-6">
               <h3 className="text-xl font-bold">Venue Event Summary</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-neutral-800">
-                      <th className="p-4 font-bold text-neutral-400">Venue</th>
-                      <th className="p-4 font-bold text-neutral-400">Future Events</th>
-                      <th className="p-4 font-bold text-neutral-400">Past Events</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {venueReport.map((v, i) => (
-                      <tr key={i} className="border-b border-neutral-800 hover:bg-neutral-800">
-                        <td className="p-4 font-medium">{v.name}</td>
-                        <td className="p-4">{v.future}</td>
-                        <td className="p-4">{v.past}</td>
+              <Card className="overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-neutral-800 bg-neutral-800/50">
+                        <th className="p-4 font-bold text-neutral-400 uppercase text-xs tracking-wider">Venue</th>
+                        <th className="p-4 font-bold text-neutral-400 uppercase text-xs tracking-wider">Future Events</th>
+                        <th className="p-4 font-bold text-neutral-400 uppercase text-xs tracking-wider">Past Events</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {venueReport.map((v, i) => (
+                        <tr key={i} className="border-b border-neutral-800 hover:bg-neutral-800/30 transition-colors">
+                          <td className="p-4 font-medium text-white">{v.name}</td>
+                          <td className="p-4 text-cyan-400 font-bold">{v.future}</td>
+                          <td className="p-4 text-neutral-400">{v.past}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
             </div>
           )}
           {activeSubTab === 'band_reports' && (
             <div className="space-y-6">
               <h3 className="text-xl font-bold">Band Event Summary</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-neutral-800">
-                      <th className="p-4 font-bold text-neutral-400">Band</th>
-                      <th className="p-4 font-bold text-neutral-400">Future Events</th>
-                      <th className="p-4 font-bold text-neutral-400">Past Events</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bandReport.map((b, i) => (
-                      <tr key={i} className="border-b border-neutral-800 hover:bg-neutral-800">
-                        <td className="p-4 font-medium">{b.name}</td>
-                        <td className="p-4">{b.future}</td>
-                        <td className="p-4">{b.past}</td>
+              <Card className="overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="border-b border-neutral-800 bg-neutral-800/50">
+                        <th className="p-4 font-bold text-neutral-400 uppercase text-xs tracking-wider">Band</th>
+                        <th className="p-4 font-bold text-neutral-400 uppercase text-xs tracking-wider">Future Events</th>
+                        <th className="p-4 font-bold text-neutral-400 uppercase text-xs tracking-wider">Past Events</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {bandReport.map((b, i) => (
+                        <tr key={i} className="border-b border-neutral-800 hover:bg-neutral-800/30 transition-colors">
+                          <td className="p-4 font-medium text-white">{b.name}</td>
+                          <td className="p-4 text-cyan-400 font-bold">{b.future}</td>
+                          <td className="p-4 text-neutral-400">{b.past}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Card>
             </div>
           )}
           {activeSubTab === 'syndication' && (
-            <div className="space-y-6 text-center py-12">
+            <Card className="text-center py-12 space-y-6 bg-neutral-800/30 border-neutral-700">
               <div className="w-20 h-20 bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Globe className="text-neutral-600" size={32} />
+                <Globe className="text-cyan-400" size={32} />
               </div>
               <h3 className="text-xl font-bold">Syndication Partners</h3>
-              <p className="text-neutral-500 max-w-md mx-auto">Manage external websites and platforms that display your event data.</p>
-              <button className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-xl font-bold transition-all">
+              <p className="text-neutral-400 max-w-md mx-auto">Manage external websites and platforms that display your event data.</p>
+              <Button>
                 Add Partner
-              </button>
-            </div>
+              </Button>
+            </Card>
           )}
           {activeSubTab === 'venues' && !editingId && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-bold">Manage Venues</h3>
                 <div className="flex gap-2">
-                  <button
+                  <Button
                     onClick={() => setEditingId('new')}
-                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 mr-4"
                   >
                     <Plus size={16} />
                     Create New Venue
-                  </button>
-                  <input
+                  </Button>
+                  <Input
                     type="text"
                     placeholder="Search venues..."
-                    className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-red-600 outline-none"
                     value={venueSearch}
                     onChange={(e) => setVenueSearch(e.target.value)}
+                    className="w-48"
                   />
                   <select
-                    className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-red-600 outline-none"
+                    className="bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-2 text-sm text-white focus:ring-2 focus:ring-cyan-400 focus:border-transparent"
                     value={venueFilter}
                     onChange={(e) => setVenueFilter(e.target.value)}
                   >
@@ -905,46 +834,51 @@ export function AdminView() {
                 </div>
               </div>
               {loadingVenues ? (
-                <div className="flex justify-center py-12"><Loader2 className="animate-spin text-red-600" size={32} /></div>
+                <div className="flex justify-center py-12"><Loader2 className="animate-spin text-cyan-400" size={32} /></div>
               ) : (
                 <div className="space-y-2">
                   {filteredVenues.map((v: any) => (
-                    <div key={v.id} className="p-4 bg-neutral-800 rounded-2xl flex justify-between items-center group">
+                    <Card key={v.id} className="flex justify-between items-center p-4 bg-neutral-800/50">
                       <div className="space-y-1">
-                        <span className="font-medium block">{v.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-white block">{v.name}</span>
+                          {v.manager && (
+                            <span className="text-xs text-neutral-400 font-medium tracking-wide">
+                              • {v.manager.first_name} {v.manager.last_name}
+                            </span>
+                          )}
+                        </div>
                         {v.updated_at && (
-                          <div className="flex items-center gap-2 text-[10px] text-neutral-500 font-medium uppercase tracking-wider">
+                          <div className="flex items-center gap-2 text-[10px] text-neutral-400 font-medium uppercase tracking-wider">
                             <Clock size={10} />
                             <span>Last Edit: {formatDate(v.updated_at)} at {formatTime(v.updated_at)}</span>
                             {v.profiles && (
                               <>
                                 <span className="text-neutral-700">•</span>
-                                <span className="text-red-600/70">By {v.profiles.first_name} {v.profiles.last_name} ({v.profiles.email})</span>
+                                <span>By {v.profiles.first_name} {v.profiles.last_name} ({v.profiles.email})</span>
                               </>
                             )}
                           </div>
                         )}
                       </div>
                       <div className="flex gap-2">
-                        <button 
+                        <Button 
+                          variant="secondary"
+                          size="sm"
                           onClick={() => setEditingId(v.id)}
-                          className="text-neutral-500 hover:text-red-600 transition-all cursor-pointer bg-neutral-900/50 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest"
                         >
                           Edit
-                        </button>
-                        <button 
+                        </Button>
+                        <Button 
+                          variant={(v as any).is_archived ? 'secondary' : 'danger'}
+                          size="sm"
                           onClick={() => handleDeleteOrArchiveVenue(v.id, !!(v as any).is_archived)}
-                          className={`transition-all cursor-pointer px-3 py-2 rounded-xl ${
-                            (v as any).is_archived 
-                              ? 'bg-green-600/10 text-green-500 hover:bg-green-600/20' 
-                              : 'bg-neutral-900/50 text-neutral-500 hover:text-red-600'
-                          }`}
                           title={(v as any).is_archived ? "Restore Venue" : "Delete/Archive Venue"}
                         >
                           {(v as any).is_archived ? <RefreshCcw size={16} /> : <Trash2 size={16} />}
-                        </button>
+                        </Button>
                       </div>
-                    </div>
+                    </Card>
                   ))}
                 </div>
               )}
@@ -952,7 +886,7 @@ export function AdminView() {
           )}
           {activeSubTab === 'venues' && editingId && (
             <div className="space-y-6">
-              <button onClick={() => setEditingId(null)} className="text-neutral-500 hover:text-white">← Back to List</button>
+              <button onClick={() => setEditingId(null)} className="text-neutral-400 hover:text-white">← Back to List</button>
               <VenueProfileEditor venueId={editingId} hideDropdown={true} />
             </div>
           )}
@@ -961,22 +895,21 @@ export function AdminView() {
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-bold">Manage Bands</h3>
                 <div className="flex gap-2">
-                  <button
+                  <Button
                     onClick={() => setEditingId('new')}
-                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 mr-4"
                   >
                     <Plus size={16} />
                     Create New Band
-                  </button>
-                  <input
+                  </Button>
+                  <Input
                     type="text"
                     placeholder="Search bands..."
-                    className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-red-600 outline-none"
                     value={bandSearch}
                     onChange={(e) => setBandSearch(e.target.value)}
+                    className="w-48"
                   />
                   <select
-                    className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-red-600 outline-none"
+                    className="bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-2 text-sm text-white focus:ring-2 focus:ring-cyan-400 focus:border-transparent"
                     value={bandFilter}
                     onChange={(e) => setBandFilter(e.target.value)}
                   >
@@ -994,49 +927,47 @@ export function AdminView() {
                 </div>
               </div>
               {loadingBands ? (
-                <div className="flex justify-center py-12"><Loader2 className="animate-spin text-red-600" size={32} /></div>
+                <div className="flex justify-center py-12"><Loader2 className="animate-spin text-cyan-400" size={32} /></div>
               ) : (
                 <div className="space-y-2">
                   {filteredBands.map((b: any) => (
-                    <div key={b.id} className="p-4 bg-neutral-800 rounded-2xl flex justify-between items-center group">
+                    <Card key={b.id} className="flex justify-between items-center p-4 bg-neutral-800/50">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium block">{b.name}</span>
+                          <span className="font-medium text-white block">{b.name}</span>
                           {b.is_published && <span className="px-2 py-0.5 bg-green-500/10 text-green-500 rounded text-[10px] font-bold uppercase">Published</span>}
                         </div>
                         {b.updated_at && (
-                          <div className="flex items-center gap-2 text-[10px] text-neutral-500 font-medium uppercase tracking-wider">
+                          <div className="flex items-center gap-2 text-[10px] text-neutral-400 font-medium uppercase tracking-wider">
                             <Clock size={10} />
                             <span>Last Edit: {formatDate(b.updated_at)} at {formatTime(b.updated_at)}</span>
                             {b.profiles && (
                               <>
                                 <span className="text-neutral-700">•</span>
-                                <span className="text-red-600/70">By {b.profiles.first_name} {b.profiles.last_name} ({b.profiles.email})</span>
+                                <span>By {b.profiles.first_name} {b.profiles.last_name} ({b.profiles.email})</span>
                               </>
                             )}
                           </div>
                         )}
                       </div>
                       <div className="flex gap-2">
-                        <button 
+                        <Button 
+                          variant="secondary"
+                          size="sm"
                           onClick={() => setEditingId(b.id)}
-                          className="text-neutral-500 hover:text-red-600 transition-all cursor-pointer bg-neutral-900/50 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest"
                         >
                           Edit
-                        </button>
-                        <button 
+                        </Button>
+                        <Button 
+                          variant={(b as any).is_archived ? 'secondary' : 'danger'}
+                          size="sm"
                           onClick={() => handleDeleteOrArchiveBand(b.id, !!(b as any).is_archived)}
-                          className={`transition-all cursor-pointer px-3 py-2 rounded-xl ${
-                            (b as any).is_archived 
-                              ? 'bg-green-600/10 text-green-500 hover:bg-green-600/20' 
-                              : 'bg-neutral-900/50 text-neutral-500 hover:text-red-600'
-                          }`}
                           title={(b as any).is_archived ? "Restore Band" : "Delete/Archive Band"}
                         >
                           {(b as any).is_archived ? <RefreshCcw size={16} /> : <Trash2 size={16} />}
-                        </button>
+                        </Button>
                       </div>
-                    </div>
+                    </Card>
                   ))}
                 </div>
               )}
@@ -1044,7 +975,7 @@ export function AdminView() {
           )}
           {activeSubTab === 'bands' && editingId && (
             <div className="space-y-6">
-              <button onClick={() => setEditingId(null)} className="text-neutral-500 hover:text-white">← Back to List</button>
+              <button onClick={() => setEditingId(null)} className="text-neutral-400 hover:text-white">← Back to List</button>
               <BandProfileEditor bandId={editingId} />
             </div>
           )}
@@ -1053,24 +984,23 @@ export function AdminView() {
               <div className="flex justify-between items-center gap-4">
                 <h3 className="text-xl font-bold">Manage Events</h3>
                 <div className="flex gap-2 items-center">
-                  <button
+                  <Button
                     onClick={() => {
                       setEditingId('new');
                     }}
-                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2"
                   >
                     <Plus size={16} />
                     New Event
-                  </button>
-                  <input
+                  </Button>
+                  <Input
                     type="text"
                     placeholder="Search..."
-                    className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-red-600 outline-none w-48"
                     value={eventSearch}
                     onChange={(e) => setEventSearch(e.target.value)}
+                    className="w-48"
                   />
                   <select
-                    className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-red-600 outline-none"
+                    className="bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-2 text-sm text-white focus:ring-2 focus:ring-cyan-400 focus:border-transparent"
                     value={eventFilter}
                     onChange={(e) => setEventFilter(e.target.value)}
                   >
@@ -1078,28 +1008,25 @@ export function AdminView() {
                     <option value="missing_start_time">Missing Start Time</option>
                     <option value="missing_venue">Missing Venue</option>
                   </select>
-                  <button 
+                  <Button 
+                    variant={showPastEvents ? 'primary' : 'secondary'}
+                    size="sm"
                     onClick={() => setShowPastEvents(!showPastEvents)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all border ${
-                      showPastEvents 
-                        ? 'bg-red-600/10 border-red-600/50 text-red-600' 
-                        : 'bg-neutral-800 border-neutral-700 text-neutral-500 hover:border-neutral-600'
-                    }`}
                   >
                     <Filter size={14} />
                     {showPastEvents ? 'Showing All' : 'Hide Past'}
-                  </button>
+                  </Button>
                 </div>
               </div>
               {loadingEvents ? (
-                <div className="flex justify-center py-12"><Loader2 className="animate-spin text-red-600" size={32} /></div>
+                <div className="flex justify-center py-12"><Loader2 className="animate-spin text-cyan-400" size={32} /></div>
               ) : (
                 <div className="space-y-2">
                   {filteredEvents.map((e: any) => (
-                    <div key={e.id} className="p-4 bg-neutral-800 rounded-2xl flex justify-between items-center group">
+                    <Card key={e.id} className="p-4 bg-neutral-800/50 flex justify-between items-center group">
                       <div className="space-y-1">
-                        <span className="font-medium block">{e.title}</span>
-                        <div className="flex items-center gap-3 text-[10px] text-neutral-500 font-medium uppercase tracking-wider">
+                        <span className="font-medium text-white block">{e.title}</span>
+                        <div className="flex items-center gap-3 text-[10px] text-neutral-400 font-medium uppercase tracking-wider">
                           <span className="flex items-center gap-1">
                             <Calendar size={10} /> 
                             {e.start_time ? formatDate(e.start_time) : (e.acts?.[0]?.start_time ? formatDate(e.acts[0].start_time) : 'No Date')}
@@ -1115,7 +1042,7 @@ export function AdminView() {
                               {e.profiles && (
                                 <>
                                   <span className="text-neutral-700">•</span>
-                                  <span className="text-red-600/70">By {e.profiles.first_name} {e.profiles.last_name} ({e.profiles.email})</span>
+                                  <span>By {e.profiles.first_name} {e.profiles.last_name} ({e.profiles.email})</span>
                                 </>
                               )}
                             </div>
@@ -1123,32 +1050,38 @@ export function AdminView() {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button 
+                        <Button 
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleCopyAsNew(e)}
                           title="Copy"
-                          className="p-2 text-blue-500 hover:bg-blue-500/10 rounded-lg transition-all"
+                          className="text-cyan-400 hover:bg-cyan-400/10"
                         >
                           <Copy size={16} />
-                        </button>
-                        <button 
+                        </Button>
+                        <Button 
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setEditingId(e.id)}
                           title="Edit"
-                          className="p-2 text-red-600 hover:bg-red-600/10 rounded-lg transition-all"
+                          className="text-white hover:bg-neutral-700"
                         >
                           <Edit2 size={16} />
-                        </button>
-                        <button 
+                        </Button>
+                        <Button 
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleDeleteEvent(e.id)}
                           title="Delete"
-                          className="p-2 text-neutral-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                          className="text-neutral-400 hover:text-red-500 hover:bg-red-500/10"
                         >
                           <Trash2 size={16} />
-                        </button>
+                        </Button>
                       </div>
-                    </div>
+                    </Card>
                   ))}
                   {filteredEvents.length === 0 && (
-                    <div className="text-center py-12 text-neutral-500">No events found.</div>
+                    <div className="text-center py-12 text-neutral-400">No events found.</div>
                   )}
                 </div>
               )}
@@ -1167,7 +1100,7 @@ export function AdminView() {
           )}
           {activeSubTab === 'events' && editingId && (
             <div className="space-y-6">
-              <button onClick={() => setEditingId(null)} className="text-neutral-500 hover:text-white">← Back to List</button>
+              <button onClick={() => setEditingId(null)} className="text-neutral-400 hover:text-white">← Back to List</button>
               {editingId === 'new' ? (
                 <EventEditor 
                   onClose={() => setEditingId(null)} 
@@ -1191,113 +1124,49 @@ export function AdminView() {
           {activeSubTab === 'scraper' && (
             <div className="space-y-6">
               <div className="flex items-center gap-4 mb-8">
-                <div className="w-12 h-12 bg-red-600/10 rounded-2xl flex items-center justify-center text-red-600">
+                <div className="w-12 h-12 bg-red-600/10 rounded-2xl flex items-center justify-center text-red-500">
                   <Sparkles size={24} />
                 </div>
                 <div>
                   <h3 className="text-xl font-bold">Uploads</h3>
-                  <p className="text-neutral-500 text-sm">Manage your uploads.</p>
+                  <p className="text-neutral-400 text-sm">Manage your uploads.</p>
                 </div>
               </div>
               <ScraperView />
-            </div>
-          )}
-          {activeSubTab === 'stock' && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-white">Images</h3>
-                  <p className="text-neutral-500 text-sm mt-1">Manage the library of images.</p>
-                </div>
-                <div className="flex gap-2">
-                  <input 
-                    type="file" 
-                    accept="image/*" 
-                    className="hidden" 
-                    ref={heroFileInputRef} 
-                    onChange={handleHeroUpload} 
-                  />
-                  <button
-                    onClick={() => heroFileInputRef.current?.click()}
-                    disabled={uploadingHero}
-                    className="px-6 py-2 bg-neutral-800 hover:bg-neutral-700 disabled:opacity-50 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all border border-neutral-700 flex items-center gap-2"
-                  >
-                    {uploadingHero ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
-                    {uploadingHero ? 'Uploading...' : 'Upload Home Hero'}
-                  </button>
-                  <button
-                    onClick={handleAddStockImage}
-                    className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-all"
-                  >
-                    Add Stock Image URL
-                  </button>
-                </div>
-              </div>
-
-              {loadingStock ? (
-                <div className="flex items-center justify-center py-20">
-                  <Loader2 className="animate-spin text-red-600" size={32} />
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                  {stockImages.map((img) => (
-                    <div key={img.id} className="group relative aspect-square rounded-2xl overflow-hidden border border-neutral-800 bg-neutral-800">
-                      <img src={img.thumbnail} alt={img.label} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-3">
-                        <p className="text-white text-[10px] font-bold truncate">{img.label}</p>
-                        <p className="text-red-600 text-[8px] font-bold uppercase tracking-widest">{img.type} / {img.category}</p>
-                        <button
-                          onClick={() => handleDeleteStockImage(img.id)}
-                          className="mt-2 w-full py-1 bg-red-500 hover:bg-red-600 text-white text-[8px] font-bold uppercase tracking-widest rounded-lg transition-all"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {stockImages.length === 0 && (
-                    <div className="col-span-full py-20 text-center text-neutral-500">
-                      <p>No dynamic stock images found. The library is currently using hardcoded defaults.</p>
-                      <p className="text-xs mt-2">Add images here to populate the dynamic library.</p>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           )}
           {activeSubTab === 'deduplication' && (
             <DeduplicationTool />
           )}
           {activeSubTab === 'system' && (
-            <div className="space-y-6 text-center py-12">
+            <Card className="text-center py-12 space-y-6 bg-neutral-800/30 border-neutral-700">
               <div className="w-20 h-20 bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Settings className="text-neutral-600" size={32} />
+                <Settings className="text-cyan-400" size={32} />
               </div>
               <h3 className="text-xl font-bold">System Utilities</h3>
-              <p className="text-neutral-500 max-w-md mx-auto">Perform administrative tasks and manage system data.</p>
+              <p className="text-neutral-400 max-w-md mx-auto">Perform administrative tasks and manage system data.</p>
               
               <div className="flex flex-col gap-4 max-w-xs mx-auto">
-                <button 
+                <Button 
                   onClick={seedTestData}
                   disabled={isSeeding}
-                  className="bg-red-600 hover:bg-red-700 disabled:bg-neutral-700 text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
                 >
                   {isSeeding ? <Loader2 className="animate-spin" size={18} /> : null}
                   {isSeeding ? 'Processing...' : 'Seed Test Data'}
-                </button>
+                </Button>
                 
-                <button 
+                <Button 
                   onClick={clearTestData}
                   disabled={isSeeding}
-                  className="bg-neutral-800 hover:bg-red-900/30 hover:text-red-500 text-neutral-400 px-6 py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2 border border-neutral-700"
+                  variant="secondary"
                 >
                   {isSeeding ? <Loader2 className="animate-spin" size={18} /> : null}
                   {isSeeding ? 'Processing...' : 'Clear All My Data'}
-                </button>
+                </Button>
               </div>
               
               <p className="text-xs text-neutral-600 mt-4">Seed data creates 5 venues, 1 band, and 15 events. Clear data removes everything owned by you.</p>
-            </div>
+            </Card>
           )}
         </div>
     </div>

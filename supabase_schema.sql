@@ -4,7 +4,7 @@
 */
 
 -- 1. Roles Enum
-CREATE TYPE user_role AS ENUM ('venue_manager', 'band_manager', 'musician', 'event_attendee', 'syndication_manager', 'admin');
+CREATE TYPE user_role AS ENUM ('venue_manager', 'band_manager', 'musician', 'guest', 'syndication_manager', 'admin');
 
 -- 2. Profiles Table (Extends Auth)
 CREATE TABLE profiles (
@@ -15,7 +15,7 @@ CREATE TABLE profiles (
   phone TEXT,
   address TEXT,
   avatar_url TEXT,
-  roles user_role[] DEFAULT '{event_attendee}',
+  roles user_role[] DEFAULT '{attendee}',
   last_login_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -52,10 +52,11 @@ CREATE TABLE people (
   last_name TEXT,
   email TEXT UNIQUE,
   phone TEXT,
-  roles user_role[] DEFAULT '{event_attendee}',
+  roles user_role[] DEFAULT '{attendee}',
   venue_ids UUID[] DEFAULT '{}',
   band_ids UUID[] DEFAULT '{}',
   last_login_at TIMESTAMP WITH TIME ZONE,
+  avatar_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_by UUID REFERENCES profiles(id)
@@ -69,7 +70,7 @@ DECLARE
 BEGIN
   -- 1. Create the profile
   INSERT INTO public.profiles (id, email, roles)
-  VALUES (new.id, new.email, '{event_attendee}');
+  VALUES (new.id, new.email, '{guest}');
 
   -- 2. Check if this person already exists in our master list by email
   SELECT id INTO existing_person_id FROM public.people WHERE email = new.email;
@@ -321,7 +322,7 @@ CREATE TABLE syndication_locations (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- 13. Favorites (Listeners)
+-- 13. Favorites (Attendees)
 CREATE TABLE favorites (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES profiles(id),

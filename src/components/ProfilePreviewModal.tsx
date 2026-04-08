@@ -5,9 +5,7 @@ import { X, MapPin, Phone, Globe, Mail, Info, Music, Calendar, Video, Clock, Tic
 import { displayAddress } from '../lib/geo';
 import { formatDate, formatTimeString, getDateFromDate } from '../lib/utils';
 import { supabase } from '../lib/supabase';
-import { Event } from '../types';
-
-import { STOCK_IMAGES } from '../constants/stockImages';
+import { Venue, Band, AppEvent } from '../types';
 
 interface ProfilePreviewModalProps {
   isOpen: boolean;
@@ -17,9 +15,9 @@ interface ProfilePreviewModalProps {
 }
 
 export default function ProfilePreviewModal({ isOpen, onClose, type, data }: ProfilePreviewModalProps) {
-  const [events, setEvents] = useState<Event[]>([]);
+  const [events, setEvents] = useState<AppEvent[]>([]);
   const [loadingEvents, setLoadingEvents] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<AppEvent | null>(null);
   const [stackedVenue, setStackedVenue] = useState<any | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [bandMembers, setBandMembers] = useState<any[]>([]);
@@ -222,7 +220,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
       return (
         <div className="text-center py-8 bg-neutral-800/50 rounded-2xl border border-neutral-800">
           <Calendar className="mx-auto text-neutral-600 mb-2" size={32} />
-          <p className="text-neutral-500 text-sm">No upcoming events scheduled.</p>
+          <p className="text-neutral-400 text-sm">No upcoming events scheduled.</p>
         </div>
       );
     }
@@ -242,21 +240,21 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
             <div className="flex-1 min-w-0">
               <h4 className="font-bold text-white truncate">{event.title}</h4>
               <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-neutral-400">
-                <span className="flex items-center gap-1"><Calendar size={12} className="text-red-600" /> {formatDate(event.start_time)}</span>
+                <span className="flex items-center gap-1"><Calendar size={12} className="text-red-500" /> {formatDate(event.start_time)}</span>
                 {event.doors_open_time && (
                   <span className="flex items-center gap-1">
-                    <Clock size={12} className="text-red-600" /> 
+                    <Clock size={12} className="text-red-500" /> 
                     {formatTimeString(event.doors_open_time)}
                   </span>
                 )}
-                {type === 'band' && event.venues && <span className="flex items-center gap-1"><MapPin size={12} className="text-red-600" /> {event.venues.name}</span>}
+                {type === 'band' && event.venues && <span className="flex items-center gap-1"><MapPin size={12} className="text-red-500" /> {event.venues.name}</span>}
               </div>
             </div>
             <div className="flex items-center gap-4 shrink-0">
               {(event.ticket_price_low !== undefined) && (
                 <div className="text-right">
-                  <div className="text-red-600 font-bold text-sm">${event.ticket_price_low}</div>
-                  <div className="text-[10px] text-neutral-500 uppercase font-bold tracking-widest">Tickets</div>
+                  <div className="text-red-500 font-bold text-sm">${event.ticket_price_low}</div>
+                  <div className="text-[10px] text-neutral-400 uppercase font-bold tracking-widest">Tickets</div>
                 </div>
               )}
               <button
@@ -278,8 +276,8 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
 
     switch (currentType) {
       case 'venue':
-        const defaultVenueHero = STOCK_IMAGES.find(img => img.type === 'hero' && img.category === 'venue')?.url;
-        const defaultVenueLogo = STOCK_IMAGES.find(img => img.type === 'logo' && img.category === 'venue')?.url;
+        const defaultVenueHero = `https://picsum.photos/seed/venue-hero-${currentData.id}/1200/600`;
+        const defaultVenueLogo = `https://picsum.photos/seed/venue-logo-${currentData.id}/200/200`;
 
         return (
           <>
@@ -290,12 +288,6 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                 alt={currentData.name || 'Venue Preview'}
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  if (target.src !== defaultVenueHero) {
-                    target.src = defaultVenueHero || '';
-                  }
-                }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/40 to-transparent" />
               
@@ -309,7 +301,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                 <h2 className="text-4xl font-bold text-white mb-2">{currentData.name || 'Venue Name'}</h2>
                 {currentData.address && (
                   <p className="text-neutral-300 flex items-center gap-2">
-                    <MapPin size={16} className="text-red-600" /> {displayAddress(currentData.address)}
+                    <MapPin size={16} className="text-red-500" /> {displayAddress(currentData.address)}
                   </p>
                 )}
               </div>
@@ -339,7 +331,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                   <div className="space-y-3">
                     {currentData.phone && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Phone size={14} />
                         </div>
                         {currentData.phone}
@@ -347,17 +339,17 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                     )}
                     {currentData.email && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Mail size={14} />
                         </div>
-                        <a href={`mailto:${currentData.email}`} className="hover:text-red-600 transition-colors">
+                        <a href={`mailto:${currentData.email}`} className="hover:text-red-500 transition-colors">
                           {currentData.email}
                         </a>
                       </div>
                     )}
                     {currentData.website && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Globe size={14} />
                         </div>
                         <a 
@@ -372,7 +364,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                     )}
                     {currentData.linkedin_url && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Linkedin size={14} />
                         </div>
                         <a 
@@ -387,7 +379,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                     )}
                     {currentData.pinterest_url && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <LinkIcon size={14} />
                         </div>
                         <a 
@@ -402,7 +394,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                     )}
                     {currentData.youtube_url && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Youtube size={14} />
                         </div>
                         <a 
@@ -417,7 +409,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                     )}
                     {currentData.instagram_url && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Instagram size={14} />
                         </div>
                         <a 
@@ -432,7 +424,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                     )}
                     {currentData.apple_music_url && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Music size={14} />
                         </div>
                         <a 
@@ -447,7 +439,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                     )}
                     {currentData.spotify_url && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Headphones size={14} />
                         </div>
                         <a 
@@ -462,7 +454,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                     )}
                     {currentData.facebook_url && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Facebook size={14} />
                         </div>
                         <a 
@@ -477,7 +469,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                     )}
                     {currentData.twitter_url && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Twitter size={14} />
                         </div>
                         <a 
@@ -516,8 +508,8 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
         );
 
       case 'band':
-        const defaultBandHero = STOCK_IMAGES.find(img => img.type === 'hero' && img.category === 'band')?.url;
-        const defaultBandLogo = STOCK_IMAGES.find(img => img.type === 'logo' && img.category === 'band')?.url;
+        const defaultBandHero = `https://picsum.photos/seed/band-hero-${data.id}/1200/600`;
+        const defaultBandLogo = `https://picsum.photos/seed/band-logo-${data.id}/200/200`;
         
         return (
           <>
@@ -528,12 +520,6 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                 alt={data.name || 'Band Preview'}
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  if (target.src !== defaultBandHero) {
-                    target.src = defaultBandHero || '';
-                  }
-                }}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-neutral-900 via-neutral-900/40 to-transparent" />
               
@@ -541,7 +527,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                 <h2 className="text-4xl font-bold text-white mb-2">{data.name || 'Band Name'}</h2>
                 {(data.city || data.state) && (
                   <p className="text-neutral-300 flex items-center gap-2">
-                    <MapPin size={16} className="text-red-600" /> 
+                    <MapPin size={16} className="text-red-500" /> 
                     {[data.city, data.state].filter(Boolean).join(', ')}
                   </p>
                 )}
@@ -569,7 +555,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                   <div className="space-y-3">
                     {data.phone && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Phone size={14} />
                         </div>
                         {data.phone}
@@ -577,17 +563,17 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                     )}
                     {data.email && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Mail size={14} />
                         </div>
-                        <a href={`mailto:${data.email}`} className="hover:text-red-600 transition-colors">
+                        <a href={`mailto:${data.email}`} className="hover:text-red-500 transition-colors">
                           {data.email}
                         </a>
                       </div>
                     )}
                     {data.website && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Globe size={14} />
                         </div>
                         <a 
@@ -602,7 +588,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                     )}
                     {data.linkedin_url && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Linkedin size={14} />
                         </div>
                         <a 
@@ -617,7 +603,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                     )}
                     {data.pinterest_url && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <LinkIcon size={14} />
                         </div>
                         <a 
@@ -632,7 +618,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                     )}
                     {data.youtube_url && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Youtube size={14} />
                         </div>
                         <a 
@@ -647,7 +633,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                     )}
                     {data.instagram_url && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Instagram size={14} />
                         </div>
                         <a 
@@ -662,7 +648,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                     )}
                     {data.apple_music_url && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Music size={14} />
                         </div>
                         <a 
@@ -677,7 +663,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                     )}
                     {data.spotify_url && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Headphones size={14} />
                         </div>
                         <a 
@@ -692,7 +678,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                     )}
                     {data.facebook_url && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Facebook size={14} />
                         </div>
                         <a 
@@ -707,7 +693,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                     )}
                     {data.twitter_url && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Twitter size={14} />
                         </div>
                         <a 
@@ -758,7 +744,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                   <h3 className="text-xl font-bold text-white border-b border-neutral-800 pb-2">Videos</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {data.video_links.map((link: string, i: number) => (
-                      <a key={i} href={link} target="_blank" rel="noopener noreferrer" className="block p-4 bg-neutral-800 rounded-xl hover:bg-neutral-700 transition-colors text-red-600 truncate">
+                      <a key={i} href={link} target="_blank" rel="noopener noreferrer" className="block p-4 bg-neutral-800 rounded-xl hover:bg-neutral-700 transition-colors text-red-500 truncate">
                         {link}
                       </a>
                     ))}
@@ -798,7 +784,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
               {type !== 'venue' && currentData.venues && (
                 <div className="bg-neutral-800/50 p-6 rounded-2xl border border-neutral-800 flex items-center justify-between">
                   <div>
-                    <h3 className="text-sm font-bold text-neutral-500 uppercase tracking-widest mb-1">Venue</h3>
+                    <h3 className="text-sm font-bold text-neutral-400 uppercase tracking-widest mb-1">Venue</h3>
                     <p className="text-xl font-bold text-white">{currentData.venues.name}</p>
                   </div>
                   <button 
@@ -826,7 +812,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                   <div className="space-y-3">
                     {currentData.doors_open_time && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Calendar size={14} />
                         </div>
                         Doors Open: {formatTimeString(currentData.doors_open_time)}
@@ -834,7 +820,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                     )}
                     {(currentData.ticket_price_low !== undefined || currentData.ticket_price_high !== undefined) && (
                       <div className="flex items-center gap-3 text-neutral-300">
-                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-600 shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Ticket size={14} />
                         </div>
                         Tickets: {(() => {
@@ -894,7 +880,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
               {data.roles?.includes('musician') && data.musicianData && (
                 <div className="border-t border-neutral-800 pt-8 space-y-6">
                   <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                    <Music className="text-red-600" /> Musician Profile
+                    <Music className="text-red-500" /> Musician Profile
                   </h3>
                   
                   {data.musicianData.description && (
@@ -906,7 +892,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     {data.musicianData.instruments && data.musicianData.instruments.length > 0 && (
                       <div className="space-y-3">
-                        <h4 className="text-sm font-bold text-neutral-500 uppercase tracking-widest">Instruments</h4>
+                        <h4 className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Instruments</h4>
                         <div className="flex flex-wrap gap-2">
                           {data.musicianData.instruments.map((inst: string) => (
                             <span key={inst} className="px-3 py-1 bg-neutral-800 text-neutral-300 rounded-full text-sm">
@@ -918,7 +904,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                     )}
 
                     <div className="space-y-3">
-                      <h4 className="text-sm font-bold text-neutral-500 uppercase tracking-widest">Status</h4>
+                      <h4 className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Status</h4>
                       <div className="flex items-center gap-2">
                         <div className={`w-2 h-2 rounded-full ${data.musicianData.looking_for_bands ? 'bg-green-500' : 'bg-neutral-500'}`} />
                         <span className="text-neutral-300">
@@ -930,10 +916,10 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
 
                   {data.musicianData.video_links && data.musicianData.video_links.length > 0 && (
                     <div className="space-y-3">
-                      <h4 className="text-sm font-bold text-neutral-500 uppercase tracking-widest">Videos</h4>
+                      <h4 className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Videos</h4>
                       <div className="grid grid-cols-1 gap-2">
                         {data.musicianData.video_links.map((link: string, i: number) => (
-                          <a key={i} href={link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-3 bg-neutral-800 rounded-xl hover:bg-neutral-700 transition-colors text-red-600 truncate text-sm">
+                          <a key={i} href={link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 p-3 bg-neutral-800 rounded-xl hover:bg-neutral-700 transition-colors text-red-500 truncate text-sm">
                             <Video size={16} className="shrink-0" />
                             <span className="truncate">{link}</span>
                           </a>

@@ -87,6 +87,40 @@ async function startServer() {
     res.json({ success: true, message: `Notification sent to ${recipient}` });
   });
 
+  // API Route for Band Confirmation Email
+  app.post("/api/send-confirmation-email", async (req, res) => {
+    const { bandEmail, bandName, eventName, venueName, eventDate, link, isReminder } = req.body;
+    
+    if (!process.env.RESEND_API_KEY) {
+      return res.status(500).json({ error: "RESEND_API_KEY not configured" });
+    }
+
+    try {
+      const { Resend } = await import('resend');
+      const resend = new Resend(process.env.RESEND_API_KEY);
+
+      const subject = isReminder 
+        ? `Reminder: please confirm your event at ${venueName}` 
+        : `Please confirm your event at ${venueName}`;
+      
+      const body = isReminder
+        ? `Hi ${bandName}, just a quick reminder regarding ${eventName} at ${venueName} on ${eventDate}. Please confirm here: ${link}`
+        : `Hi ${bandName}, you’ve been requested for ${eventName} at ${venueName} on ${eventDate}. Please review and confirm here: ${link}`;
+
+      await resend.emails.send({
+        from: 'BandVenue <noreply@bandvenue.com>',
+        to: bandEmail,
+        subject: subject,
+        text: body
+      });
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Email error:", error);
+      res.status(500).json({ error: "Failed to send email" });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

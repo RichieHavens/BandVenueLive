@@ -1,9 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Person, Venue, Band, UserRole } from '../types';
-import { Loader2, Plus, Search, User, Mail, Phone, Building2, Music, Trash2, X, ShieldCheck, Clock, Eye, EyeOff } from 'lucide-react';
+import { Person, Venue, Band, UserRole, MusicianProfile } from '../types';
+import { Loader2, Plus, Search, User, Mail, Phone, Building2, Music, Trash2, X, ShieldCheck, Clock, Eye, EyeOff, AlertCircle, Check } from 'lucide-react';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Card } from './ui/Card';
+import { theme } from '../lib/theme';
+import { cn } from '../lib/utils';
 import { formatPhoneNumber } from '../lib/phoneFormatter';
-import { formatDate, formatTime } from '../lib/utils';
+import { formatDate, formatTime, getPriorityDefaultRole } from '../lib/utils';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
@@ -16,6 +21,7 @@ export default function PeopleManager() {
   const [isAdding, setIsAdding] = useState(false);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
 
   // Form state
   const [firstName, setFirstName] = useState('');
@@ -26,20 +32,30 @@ export default function PeopleManager() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [createAccount, setCreateAccount] = useState(false);
-  const [selectedRoles, setSelectedRoles] = useState<UserRole[]>(['event_attendee']);
+  const [selectedRoles, setSelectedRoles] = useState<UserRole[]>(['guest']);
   const [selectedRoleForAssociation, setSelectedRoleForAssociation] = useState<UserRole>('venue_manager');
+  const [musicianData, setMusicianData] = useState<Partial<MusicianProfile>>({
+    instruments: [],
+    looking_for_band: false,
+    open_for_gigs: false
+  });
   
   // Venue/Band selection state
   const [venues, setVenues] = useState<Venue[]>([]);
   const [bands, setBands] = useState<Band[]>([]);
   const [selectedEntityId, setSelectedEntityId] = useState<string>('');
+  const [entitySearch, setEntitySearch] = useState('');
+  const [showEntityDropdown, setShowEntityDropdown] = useState(false);
   const [newEntityName, setNewEntityName] = useState('');
+  const [lookupLoading, setLookupLoading] = useState(false);
   const [existingVenueIds, setExistingVenueIds] = useState<string[]>([]);
   const [existingBandIds, setExistingBandIds] = useState<string[]>([]);
+  const [defaultRole, setDefaultRole] = useState<UserRole>('guest');
   const [confirmDialog, setConfirmDialog] = useState<{ message: string, onConfirm: () => void } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [saveSuccess, setSaveSuccess] = useState<{ id: string, name: string, isNew: boolean } | null>(null);
 
-  const ALL_ROLES: UserRole[] = ['venue_manager', 'band_manager', 'musician', 'event_attendee', 'syndication_manager', 'admin'];
+  const ALL_ROLES: UserRole[] = ['venue_manager', 'band_manager', 'musician', 'guest', 'syndication_manager', 'admin'];
 
   useEffect(() => {
     fetchPeople();
@@ -47,12 +63,18 @@ export default function PeopleManager() {
   }, []);
 
   useEffect(() => {
+    setEntitySearch('');
+    setSelectedEntityId('');
+  }, [selectedRoleForAssociation]);
+
+  useEffect(() => {
     if (editingPerson) {
       setFirstName(editingPerson.first_name);
       setLastName(editingPerson.last_name);
-      setEmail(editingPerson.email);
+      setEmail(editingPerson.email || '');
       setPhone(editingPerson.phone || '');
-      setSelectedRoles(editingPerson.roles || ['event_attendee']);
+      setSelectedRoles(editingPerson.roles || ['guest']);
+      setDefaultRole(editingPerson.default_role || (editingPerson.roles && editingPerson.roles.length > 0 ? editingPerson.roles[0] : 'guest'));
       setExistingVenueIds(editingPerson.venue_ids || []);
       setExistingBandIds(editingPerson.band_ids || []);
       setCreateAccount(false);
@@ -67,7 +89,8 @@ export default function PeopleManager() {
       setPassword('');
       setConfirmPassword('');
       setCreateAccount(false);
-      setSelectedRoles(['event_attendee']);
+      setSelectedRoles(['guest']);
+      setDefaultRole('guest');
       setExistingVenueIds([]);
       setExistingBandIds([]);
       setNewEntityName('');
@@ -76,7 +99,7 @@ export default function PeopleManager() {
   }, [editingPerson]);
 
   async function fetchPeople() {
-    setLoading(true);
+    if (people.length === 0) setLoading(true);
     const { data, error } = await supabase
       .from('people')
       .select(`
@@ -101,11 +124,13 @@ export default function PeopleManager() {
   }
 
   const toggleRole = (role: UserRole) => {
-    setSelectedRoles(prev => 
-      prev.includes(role) 
+    setSelectedRoles(prev => {
+      const nextRoles = prev.includes(role) 
         ? prev.filter(r => r !== role) 
-        : [...prev, role]
-    );
+        : [...prev, role];
+      setDefaultRole(getPriorityDefaultRole(nextRoles));
+      return nextRoles;
+    });
   };
 
   async function handleSavePerson(e: React.FormEvent) {
@@ -232,14 +257,17 @@ export default function PeopleManager() {
         entityId = newEntity.id;
       }
 
+      let finalDefaultRole = defaultRole;
       if (entityId && entityId !== 'new') {
         if (selectedRoleForAssociation === 'venue_manager' && !venueIds.includes(entityId)) {
           venueIds.push(entityId);
           if (!finalRoles.includes('venue_manager')) finalRoles.push('venue_manager');
+          if (!editingPerson) finalDefaultRole = 'venue_manager';
         }
         if (selectedRoleForAssociation === 'band_manager' && !bandIds.includes(entityId)) {
           bandIds.push(entityId);
           if (!finalRoles.includes('band_manager')) finalRoles.push('band_manager');
+          if (!editingPerson) finalDefaultRole = 'band_manager';
         }
       }
 
@@ -252,6 +280,7 @@ export default function PeopleManager() {
         phone: phone.trim(),
         user_id: targetUserId,
         roles: finalRoles,
+        default_role: finalDefaultRole,
         venue_ids: venueIds,
         band_ids: bandIds,
         updated_at: new Date().toISOString(),
@@ -278,7 +307,8 @@ export default function PeopleManager() {
               first_name: firstName.trim(),
               last_name: lastName.trim(),
               phone: phone.trim(),
-              roles: finalRoles
+              roles: finalRoles,
+              default_role: finalDefaultRole
             });
           if (profileError) console.warn('Profile sync warning:', profileError);
         }
@@ -317,7 +347,8 @@ export default function PeopleManager() {
               first_name: firstName.trim(),
               last_name: lastName.trim(),
               phone: phone.trim(),
-              roles: finalRoles
+              roles: finalRoles,
+              default_role: finalDefaultRole
             });
         }
       }
@@ -345,10 +376,11 @@ export default function PeopleManager() {
       }
 
       // Reset form
-      setIsAdding(false);
-      setEditingPerson(null);
-      fetchPeople();
-      fetchEntities();
+      // setIsAdding(false);
+      // setEditingPerson(null);
+      await fetchPeople();
+      await fetchEntities();
+      setSaveSuccess({ id: personId as string, name: `${firstName.trim()} ${lastName.trim()}`, isNew: !editingPerson });
     } catch (error: any) {
       console.error('Error saving person:', error);
       if (error.status === 429) {
@@ -461,15 +493,46 @@ export default function PeopleManager() {
     });
   }
 
-  const filteredPeople = people.filter(p => 
-    `${p.first_name} ${p.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
-    (p.email && p.email.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filteredEntities = (selectedRoleForAssociation === 'venue_manager' ? venues : bands)
+    .filter(e => e.name.toLowerCase().includes(entitySearch.toLowerCase()));
+
+  const filteredPeople = people.filter(p => {
+    const matchesSearch = `${p.first_name} ${p.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
+      (p.email && p.email.toLowerCase().includes(search.toLowerCase()));
+    const matchesRole = roleFilter === 'all' || p.roles.includes(roleFilter);
+    return matchesSearch && matchesRole;
+  });
+
+  async function handleLookupUser() {
+    if (!email.trim()) return;
+    setLookupLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', email.trim().toLowerCase())
+        .maybeSingle();
+      
+      if (data) {
+        setFirstName(data.first_name || '');
+        setLastName(data.last_name || '');
+        setPhone(data.phone || '');
+        setSelectedRoles(data.roles || ['guest']);
+        setCreateAccount(true); // Since they have a profile, they have an account
+      } else {
+        alert('No existing user found with this email.');
+      }
+    } catch (err) {
+      console.error('Lookup error:', err);
+    } finally {
+      setLookupLoading(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
       {confirmDialog && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 pb-24 md:pb-4">
           <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 w-full max-w-md relative">
             <h3 className="text-xl font-bold text-white mb-4">Confirm Action</h3>
             <p className="text-neutral-400 mb-8">{confirmDialog.message}</p>
@@ -502,155 +565,242 @@ export default function PeopleManager() {
 
       <div className="flex justify-between items-center">
         <h3 className="text-xl font-bold">People</h3>
-        <button 
+        <Button 
           onClick={() => setIsAdding(true)}
-          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2"
         >
           <Plus size={16} /> Add Person
-        </button>
+        </Button>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={18} />
-        <input
-          type="text"
-          placeholder="Search people by name or email..."
-          className="w-full bg-neutral-800 border border-neutral-700 rounded-xl pl-12 pr-4 py-3 text-sm focus:ring-2 focus:ring-red-600 outline-none"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
+          <Input
+            type="text"
+            placeholder="Search people by name or email..."
+            className="pl-12"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <select
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value as any)}
+          className={cn(theme.input, "min-w-[160px]")}
+        >
+          <option value="all">All Roles</option>
+          {ALL_ROLES.map(role => (
+            <option key={role} value={role}>{role.replace('_', ' ')}</option>
+          ))}
+        </select>
       </div>
 
-      {(isAdding || editingPerson) && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 w-full max-w-lg relative max-h-[90vh] overflow-y-auto">
-            <button 
-              onClick={() => {
-                setIsAdding(false);
-                setEditingPerson(null);
-              }}
-              className="absolute top-6 right-6 text-neutral-500 hover:text-white"
-            >
-              <X size={24} />
-            </button>
+      {(isAdding || editingPerson || saveSuccess) && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 pb-24 md:pb-4">
+            <Card className="p-6 md:p-8 w-full max-w-lg relative max-h-[70vh] md:max-h-[90vh] overflow-y-auto">
+              <button 
+                onClick={() => {
+                  setIsAdding(false);
+                  setEditingPerson(null);
+                  setEntitySearch('');
+                  setSaveSuccess(null);
+                }}
+                className="absolute top-6 right-6 text-neutral-400 hover:text-white"
+              >
+                <X size={24} />
+              </button>
 
-            <h4 className="text-2xl font-bold mb-6">{editingPerson ? 'Edit Person' : 'Add New Person'}</h4>
-            
-            <form onSubmit={handleSavePerson} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">First Name</label>
-                  <input
-                    required
-                    type="text"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-red-600"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Last Name</label>
-                  <input
-                    required
-                    type="text"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-red-600"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">
-                  Email Address {createAccount && <span className="text-red-500">*</span>}
-                </label>
-                <input
-                  required={createAccount}
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-red-600"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Phone Number</label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-red-600"
-                />
-              </div>
-
-              {(!editingPerson || !editingPerson.user_id) ? (
-                <div className="pt-4 border-t border-neutral-800 space-y-4">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="createAccount"
-                      checked={createAccount}
-                      onChange={(e) => setCreateAccount(e.target.checked)}
-                      className="rounded border-neutral-700 bg-neutral-800 text-red-600 focus:ring-red-600"
-                    />
-                    <label htmlFor="createAccount" className="text-xs font-bold uppercase tracking-widest text-neutral-400">
-                      Assign Login Privileges (Set Password)
-                    </label>
+              {saveSuccess ? (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-green-500/20 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <ShieldCheck size={32} />
                   </div>
-
-                  {createAccount && (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Password</label>
-                          <div className="relative">
-                            <input
-                              required={createAccount}
-                              type={showPassword ? "text" : "password"}
-                              value={password}
-                              onChange={(e) => setPassword(e.target.value)}
-                              placeholder="Min 6 chars..."
-                              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl pl-4 pr-10 py-2 text-sm outline-none focus:ring-2 focus:ring-red-600"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowPassword(!showPassword)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white"
-                            >
-                              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                            </button>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Confirm Password</label>
-                          <div className="relative">
-                            <input
-                              required={createAccount}
-                              type={showPassword ? "text" : "password"}
-                              value={confirmPassword}
-                              onChange={(e) => setConfirmPassword(e.target.value)}
-                              placeholder="Repeat password..."
-                              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl pl-4 pr-10 py-2 text-sm outline-none focus:ring-2 focus:ring-red-600"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowPassword(!showPassword)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-white"
-                            >
-                              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                      <p className="text-[10px] text-neutral-500 italic">
-                        Warning: Creating an account here may log you out of your current session. Use Incognito for testing.
-                      </p>
-                    </div>
-                  )}
+                  <h4 className="text-2xl font-bold mb-2 text-white">Success!</h4>
+                  <p className="text-neutral-400 mb-8">
+                    {saveSuccess.name} has been successfully {saveSuccess.isNew ? 'added' : 'updated'}.
+                  </p>
+                  <div className="flex flex-col gap-3">
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setIsAdding(false);
+                        setEditingPerson(null);
+                        setSaveSuccess(null);
+                      }}
+                    >
+                      Back to List
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setSaveSuccess(null);
+                        setEditingPerson(null);
+                        setIsAdding(true);
+                        // Reset form fields
+                        setFirstName('');
+                        setLastName('');
+                        setEmail('');
+                        setPhone('');
+                        setSelectedRoles(['guest']);
+                        setDefaultRole('guest');
+                        setExistingVenueIds([]);
+                        setExistingBandIds([]);
+                        setCreateAccount(false);
+                        setPassword('');
+                        setConfirmPassword('');
+                        setSelectedEntityId('');
+                      }}
+                    >
+                      Add Another Person
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        if (saveSuccess.isNew) {
+                          const newPerson = people.find(p => p.id === saveSuccess.id);
+                          if (newPerson) {
+                            setEditingPerson(newPerson);
+                            setIsAdding(false);
+                          }
+                        }
+                        setSaveSuccess(null);
+                      }}
+                    >
+                      Edit More Details
+                    </Button>
+                  </div>
                 </div>
               ) : (
-                <div className="pt-4 border-t border-neutral-800 space-y-4">
-                  <div className="flex flex-col gap-3 bg-neutral-800 p-4 rounded-xl border border-neutral-700">
+                <>
+                  <h4 className="text-2xl font-bold mb-6">{editingPerson ? 'Edit Person' : 'Add New Person'}</h4>
+                  
+                  <form onSubmit={handleSavePerson} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">First Name</label>
+                        <Input
+                          required
+                          type="text"
+                          value={firstName}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          className="bg-neutral-800"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Last Name</label>
+                        <Input
+                          required
+                          type="text"
+                          value={lastName}
+                          onChange={(e) => setLastName(e.target.value)}
+                          className="bg-neutral-800"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">
+                        Email Address {createAccount && <span className="text-red-500">*</span>}
+                      </label>
+                      <div className="flex gap-2">
+                        <Input
+                          required={createAccount}
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="user@example.com"
+                          className="bg-neutral-800"
+                        />
+                        {!editingPerson && (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={handleLookupUser}
+                            disabled={lookupLoading || !email}
+                          >
+                            {lookupLoading ? <Loader2 size={14} className="animate-spin" /> : 'Lookup'}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Phone Number</label>
+                      <Input
+                        type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
+                        className="bg-neutral-800"
+                      />
+                    </div>
+
+                    {(!editingPerson || !editingPerson.user_id) ? (
+                      <div className="pt-4 border-t border-neutral-800 space-y-4">
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            id="createAccount"
+                            checked={createAccount}
+                            onChange={(e) => setCreateAccount(e.target.checked)}
+                            className="rounded border-neutral-700 bg-neutral-800 text-cyan-400 focus:ring-cyan-400"
+                          />
+                          <label htmlFor="createAccount" className="text-xs font-bold uppercase tracking-widest text-neutral-400">
+                            Assign Login Privileges (Set Password)
+                          </label>
+                        </div>
+
+                        {createAccount && (
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Password</label>
+                                <div className="relative">
+                                  <Input
+                                    required={createAccount}
+                                    type={showPassword ? "text" : "password"}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="Min 6 chars..."
+                                    className="pr-10 bg-neutral-800"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
+                                  >
+                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                  </button>
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Confirm Password</label>
+                                <div className="relative">
+                                  <Input
+                                    required={createAccount}
+                                    type={showPassword ? "text" : "password"}
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    placeholder="Repeat password..."
+                                    className="pr-10 bg-neutral-800"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
+                                  >
+                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                            <p className="text-[10px] text-neutral-400 italic">
+                              Warning: Creating an account here may log you out of your current session. Use Incognito for testing.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="pt-4 border-t border-neutral-800 space-y-4">
+                        <div className="flex flex-col gap-3 bg-neutral-800 p-4 rounded-xl border border-neutral-700">
                     <div>
                       <p className="text-sm font-bold text-white flex items-center gap-2">
                         <ShieldCheck size={16} className="text-green-500" />
@@ -700,8 +850,50 @@ export default function PeopleManager() {
                 </div>
               )}
 
+              {selectedRoles.includes('musician') && (
+                <div className="pt-4 border-t border-neutral-800 space-y-4">
+                  <h5 className="text-sm font-bold text-white">Musician Details</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Low Res Image URL</label>
+                      <input type="text" value={musicianData.low_res_image_url || ''} onChange={(e) => setMusicianData({...musicianData, low_res_image_url: e.target.value})} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-red-600" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">High Res Image URL</label>
+                      <input type="text" value={musicianData.high_res_image_url || ''} onChange={(e) => setMusicianData({...musicianData, high_res_image_url: e.target.value})} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-red-600" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Hero Image URL</label>
+                      <input type="text" value={musicianData.hero_image_url || ''} onChange={(e) => setMusicianData({...musicianData, hero_image_url: e.target.value})} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-red-600" />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Instruments Played</label>
+                    <input type="text" value={musicianData.instruments?.join(', ') || ''} onChange={(e) => setMusicianData({...musicianData, instruments: e.target.value.split(',').map(i => i.trim())})} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-red-600" placeholder="Guitar, Vocals..." />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Music Description</label>
+                    <textarea value={musicianData.music_description || ''} onChange={(e) => setMusicianData({...musicianData, music_description: e.target.value})} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-red-600" rows={3} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">About Me / Career</label>
+                    <textarea value={musicianData.about_description || ''} onChange={(e) => setMusicianData({...musicianData, about_description: e.target.value})} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-red-600" rows={3} />
+                  </div>
+                  <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" id="lookingForBand" checked={musicianData.looking_for_band || false} onChange={(e) => setMusicianData({...musicianData, looking_for_band: e.target.checked})} className="rounded border-neutral-700 bg-neutral-800 text-red-500 focus:ring-red-600" />
+                      <label htmlFor="lookingForBand" className="text-xs font-bold uppercase tracking-widest text-neutral-400">Looking for Band</label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" id="openForGigs" checked={musicianData.open_for_gigs || false} onChange={(e) => setMusicianData({...musicianData, open_for_gigs: e.target.checked})} className="rounded border-neutral-700 bg-neutral-800 text-red-500 focus:ring-red-600" />
+                      <label htmlFor="openForGigs" className="text-xs font-bold uppercase tracking-widest text-neutral-400">Open for Gigs</label>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-3">
-                <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 block">Roles</label>
+                <label className="text-xs font-bold uppercase tracking-widest text-neutral-400 block">Roles</label>
                 <div className="flex flex-wrap gap-2">
                   {ALL_ROLES.map(role => (
                     <button
@@ -711,7 +903,7 @@ export default function PeopleManager() {
                       className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${
                         selectedRoles.includes(role)
                           ? 'bg-red-600 text-white'
-                          : 'bg-neutral-800 text-neutral-500 hover:bg-neutral-700'
+                          : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
                       }`}
                     >
                       {role.replace('_', ' ')}
@@ -720,20 +912,38 @@ export default function PeopleManager() {
                 </div>
               </div>
 
+              {selectedRoles.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-widest text-neutral-400 block">Default Role</label>
+                  <select
+                    value={defaultRole}
+                    onChange={(e) => setDefaultRole(e.target.value as UserRole)}
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-red-600"
+                  >
+                    {selectedRoles.map(role => (
+                      <option key={role} value={role}>{role.replace('_', ' ')}</option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-neutral-400 italic">
+                    This is the role the user will see by default when they log in.
+                  </p>
+                </div>
+              )}
+
               <div className="pt-4 border-t border-neutral-800">
                 <h5 className="text-sm font-bold uppercase tracking-widest text-neutral-400 mb-4">Associations</h5>
                 
                 {/* Existing Associations */}
                 {(existingVenueIds.length > 0 || existingBandIds.length > 0) && (
                   <div className="space-y-2 mb-6">
-                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500 block">Current Links</label>
+                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-400 block">Current Links</label>
                     <div className="space-y-2">
                       {existingVenueIds.map(id => {
                         const venue = venues.find(v => v.id === id);
                         return (
                           <div key={id} className="flex items-center justify-between bg-neutral-800 p-2 rounded-lg text-sm">
                             <div className="flex items-center gap-2">
-                              <Building2 size={14} className="text-neutral-500" />
+                              <Building2 size={14} className="text-neutral-400" />
                               <span>{venue?.name || 'Venue'}</span>
                             </div>
                             <button 
@@ -751,7 +961,7 @@ export default function PeopleManager() {
                         return (
                           <div key={id} className="flex items-center justify-between bg-neutral-800 p-2 rounded-lg text-sm">
                             <div className="flex items-center gap-2">
-                              <Music size={14} className="text-neutral-500" />
+                              <Music size={14} className="text-neutral-400" />
                               <span>{band?.name || 'Band'}</span>
                             </div>
                             <button 
@@ -770,7 +980,7 @@ export default function PeopleManager() {
 
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">Add New Association</label>
+                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Add New Association</label>
                     <select
                       value={selectedRoleForAssociation}
                       onChange={(e) => {
@@ -784,26 +994,69 @@ export default function PeopleManager() {
                     </select>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">
-                      {selectedRoleForAssociation === 'venue_manager' ? 'Select Venue' : 'Select Band'}
+                  <div className="space-y-2 relative">
+                    <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">
+                      {selectedRoleForAssociation === 'venue_manager' ? 'Search Venue' : 'Search Band'}
                     </label>
-                    <select
-                      value={selectedEntityId}
-                      onChange={(e) => setSelectedEntityId(e.target.value)}
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-red-600"
-                    >
-                      <option value="">None / No Change</option>
-                      <option value="new">+ Add New {selectedRoleForAssociation === 'venue_manager' ? 'Venue' : 'Band'}</option>
-                      {(selectedRoleForAssociation === 'venue_manager' ? venues : bands).map(entity => (
-                        <option key={entity.id} value={entity.id}>{entity.name}</option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={14} />
+                      <input
+                        type="text"
+                        value={entitySearch}
+                        onChange={(e) => {
+                          setEntitySearch(e.target.value);
+                          setShowEntityDropdown(true);
+                        }}
+                        onFocus={() => setShowEntityDropdown(true)}
+                        placeholder={`Type to search ${selectedRoleForAssociation === 'venue_manager' ? 'venues' : 'bands'}...`}
+                        className="w-full bg-neutral-800 border border-neutral-700 rounded-xl pl-9 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-red-600"
+                      />
+                    </div>
+
+                    {showEntityDropdown && (
+                      <div className="absolute z-[60] left-0 right-0 top-full mt-1 bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl max-h-48 overflow-y-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedEntityId('new');
+                            setEntitySearch('');
+                            setShowEntityDropdown(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-sm hover:bg-neutral-800 text-red-500 font-bold border-b border-neutral-800"
+                        >
+                          + Add New {selectedRoleForAssociation === 'venue_manager' ? 'Venue' : 'Band'}
+                        </button>
+                        {filteredEntities.length > 0 ? (
+                          filteredEntities.map(entity => (
+                            <button
+                              key={entity.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedEntityId(entity.id);
+                                setEntitySearch(entity.name);
+                                setShowEntityDropdown(false);
+                              }}
+                              className="w-full text-left px-4 py-2 text-sm hover:bg-neutral-800 text-white"
+                            >
+                              {entity.name}
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-4 py-2 text-xs text-neutral-400 italic">No results found</div>
+                        )}
+                      </div>
+                    )}
+                    {showEntityDropdown && (
+                      <div 
+                        className="fixed inset-0 z-[55]" 
+                        onClick={() => setShowEntityDropdown(false)}
+                      />
+                    )}
                   </div>
 
                   {selectedEntityId === 'new' && (
                     <div className="space-y-2">
-                      <label className="text-xs font-bold uppercase tracking-widest text-neutral-500">
+                      <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">
                         New {selectedRoleForAssociation === 'venue_manager' ? 'Venue' : 'Band'} Name
                       </label>
                       <input
@@ -834,12 +1087,14 @@ export default function PeopleManager() {
                 )}
               </button>
             </form>
-          </div>
+            </>
+            )}
+          </Card>
         </div>
       )}
 
       {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="animate-spin text-red-600" size={32} /></div>
+        <div className="flex justify-center py-12"><Loader2 className="animate-spin text-red-500" size={32} /></div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredPeople.map((person) => {
@@ -848,7 +1103,7 @@ export default function PeopleManager() {
             <div key={person.id} className="p-4 bg-neutral-800 rounded-2xl border border-neutral-700/50 hover:border-red-600/30 transition-all group flex flex-col gap-3">
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-neutral-900 rounded-xl flex items-center justify-center text-red-600 relative shrink-0">
+                  <div className="w-10 h-10 bg-neutral-900 rounded-xl flex items-center justify-center text-red-500 relative shrink-0">
                     <User size={20} />
                     {person.user_id && (
                       <div className="absolute -top-1 -right-1 bg-green-500 text-white rounded-full p-0.5 border border-neutral-800" title="Registered User">
@@ -865,8 +1120,16 @@ export default function PeopleManager() {
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-neutral-500">
-                      <Mail size={12} /> {person.email}
+                    <div className="flex items-center gap-2 text-xs text-neutral-400">
+                      {person.email ? (
+                        <>
+                          <Mail size={12} /> {person.email}
+                        </>
+                      ) : (
+                        <span className="text-red-500 flex items-center gap-1 font-bold" title="Email required for login and full features">
+                          <AlertCircle size={12} /> No Email Provided
+                        </span>
+                      )}
                       {person.phone && (
                         <>
                           <span className="text-neutral-700">•</span>
@@ -888,13 +1151,24 @@ export default function PeopleManager() {
                   )}
                   <button 
                     onClick={() => setEditingPerson(person)}
-                    className="text-neutral-500 hover:text-white transition-all text-[10px] font-bold uppercase tracking-widest bg-neutral-900/50 px-2 py-1 rounded-lg"
+                    className="text-neutral-400 hover:text-white transition-all text-[10px] font-bold uppercase tracking-widest bg-neutral-900/50 px-2 py-1 rounded-lg flex items-center gap-1"
+                    title="Edit Person & Associations"
                   >
-                    Edit
+                    <User size={12} /> Edit
+                  </button>
+                  <button 
+                    onClick={() => {
+                      setEditingPerson(person);
+                      // We could potentially auto-scroll to associations here if we had a ref
+                    }}
+                    className="text-red-500 hover:text-red-400 transition-all text-[10px] font-bold uppercase tracking-widest bg-red-500/10 px-2 py-1 rounded-lg flex items-center gap-1"
+                    title="Manage Links"
+                  >
+                    <Plus size={12} /> Link
                   </button>
                   <button 
                     onClick={() => handleDeletePerson(person.id)}
-                    className="text-neutral-500 hover:text-red-500 transition-all bg-neutral-900/50 p-1.5 rounded-lg"
+                    className="text-neutral-400 hover:text-red-500 transition-all bg-neutral-900/50 p-1.5 rounded-lg"
                     title="Delete Person"
                   >
                     <Trash2 size={14} />
@@ -904,7 +1178,7 @@ export default function PeopleManager() {
 
               <div className="flex flex-wrap items-center gap-2">
                 {person.roles.map(role => (
-                  <span key={role} className="px-1.5 py-0.5 bg-red-600/10 text-red-600 text-[9px] font-bold uppercase tracking-widest rounded">
+                  <span key={role} className="px-1.5 py-0.5 bg-red-600/10 text-red-500 text-[9px] font-bold uppercase tracking-widest rounded">
                     {role.replace('_', ' ')}
                   </span>
                 ))}
@@ -921,7 +1195,7 @@ export default function PeopleManager() {
                     const venue = venues.find(v => v.id === id);
                     return (
                       <div key={id} className="flex items-center gap-1 text-[10px] text-neutral-400 bg-neutral-900/50 px-2 py-1 rounded-md">
-                        <Building2 size={10} className="text-neutral-500" />
+                        <Building2 size={10} className="text-neutral-400" />
                         <span>{venue?.name || `Venue ID: ${id.slice(0, 8)}...`}</span>
                       </div>
                     );
@@ -930,7 +1204,7 @@ export default function PeopleManager() {
                     const band = bands.find(b => b.id === id);
                     return (
                       <div key={id} className="flex items-center gap-1 text-[10px] text-neutral-400 bg-neutral-900/50 px-2 py-1 rounded-md">
-                        <Music size={10} className="text-neutral-500" />
+                        <Music size={10} className="text-neutral-400" />
                         <span>{band?.name || `Band ID: ${id.slice(0, 8)}...`}</span>
                       </div>
                     );
@@ -959,7 +1233,7 @@ export default function PeopleManager() {
             );
           })}
           {filteredPeople.length === 0 && (
-            <div className="col-span-full text-center py-12 text-neutral-500">No records found.</div>
+            <div className="col-span-full text-center py-12 text-neutral-400">No records found.</div>
           )}
         </div>
       )}

@@ -7,9 +7,13 @@ import { formatPhoneNumber } from '../lib/phoneFormatter';
 import { US_STATES, CA_PROVINCES, AddressParts, formatAddress, parseAddress, validateZipForState } from '../lib/geo';
 import { handleSupabaseError, OperationType } from '../lib/error-handler';
 import { updateUserEmail } from '../lib/authService';
+import { getPriorityDefaultRole } from '../lib/utils';
 import ImageUpload from './ImageUpload';
 import { UploadedImageSet } from '../lib/imageUtils';
 import ProfilePreviewModal from './ProfilePreviewModal';
+import { Card } from './ui/Card';
+import { Input } from './ui/Input';
+import { Button } from './ui/Button';
 
 type Tab = 'account' | 'musician' | 'security';
 
@@ -36,6 +40,17 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [changingPassword, setChangingPassword] = useState(false);
   
+  // Role Request State
+  const [roleRequests, setRoleRequests] = useState<{
+    musician: { active: boolean, details: string },
+    band_manager: { active: boolean, details: string },
+    venue_manager: { active: boolean, details: string }
+  }>({
+    musician: { active: false, details: '' },
+    band_manager: { active: false, details: '' },
+    venue_manager: { active: false, details: '' }
+  });
+
   // Musician State
   const [musicianData, setMusicianData] = useState<Partial<MusicianProfile>>({
     phone: '',
@@ -150,6 +165,7 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
         video_links: [],
         description: '',
         looking_for_bands: false,
+        open_for_gigs: false,
         instruments: []
       };
 
@@ -275,37 +291,63 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
       if (profile?.roles.includes('admin') && !rolesToSave.includes('admin')) rolesToSave.push('admin');
       if (profile?.roles.includes('syndication_manager') && !rolesToSave.includes('syndication_manager')) rolesToSave.push('syndication_manager');
 
-      const { error: profileError } = await supabase
+      const profileData: any = {
+        id: user.id,
+        email: user.email,
+        first_name: firstName,
+        last_name: lastName,
+        phone: accountPhone,
+        address: newAddress,
+        roles: rolesToSave,
+        default_role: defaultRole,
+        avatar_url: avatarUrl
+      };
+
+      let { error: profileError } = await supabase
         .from('profiles')
-        .upsert({
-          id: user.id,
-          email: user.email,
-          first_name: firstName,
-          last_name: lastName,
-          phone: accountPhone,
-          address: newAddress,
-          roles: rolesToSave,
-          default_role: defaultRole,
-          avatar_url: avatarUrl
-        });
+        .upsert(profileData);
+
+      // If avatar_url column is missing, retry without it
+      if (profileError && profileError.message?.includes('avatar_url')) {
+        console.warn('avatar_url column missing in profiles table, retrying without it');
+        const { avatar_url, ...safeProfileData } = profileData;
+        const { error: retryError } = await supabase
+          .from('profiles')
+          .upsert(safeProfileData);
+        profileError = retryError;
+      }
 
       if (profileError) {
         await handleSupabaseError(profileError, OperationType.UPDATE, 'profiles');
       }
 
       // 2. Sync with People table
-      const { error: peopleError } = await supabase
+      const peopleData: any = {
+        user_id: user.id,
+        email: user.email,
+        first_name: firstName,
+        last_name: lastName,
+        phone: accountPhone,
+        roles: rolesToSave,
+        default_role: defaultRole,
+        updated_at: new Date().toISOString(),
+        updated_by: user.id,
+        avatar_url: avatarUrl
+      };
+
+      let { error: peopleError } = await supabase
         .from('people')
-        .upsert({
-          user_id: user.id,
-          email: user.email,
-          first_name: firstName,
-          last_name: lastName,
-          phone: accountPhone,
-          roles: rolesToSave,
-          updated_at: new Date().toISOString(),
-          updated_by: user.id
-        }, { onConflict: 'email' });
+        .upsert(peopleData, { onConflict: 'email' });
+
+      // If avatar_url column is missing in people table, retry without it
+      if (peopleError && peopleError.message?.includes('avatar_url')) {
+        console.warn('avatar_url column missing in people table, retrying without it');
+        const { avatar_url, ...safePeopleData } = peopleData;
+        const { error: retryPeopleError } = await supabase
+          .from('people')
+          .upsert(safePeopleData, { onConflict: 'email' });
+        peopleError = retryPeopleError;
+      }
 
       if (peopleError) {
         console.warn('Failed to sync with people table:', peopleError);
@@ -327,6 +369,7 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
             video_links: musicianData.video_links || [],
             description: musicianData.description || '',
             looking_for_bands: musicianData.looking_for_bands || false,
+            open_for_gigs: musicianData.open_for_gigs || false,
             instruments: musicianData.instruments || []
           }, { 
             onConflict: 'id' 
@@ -340,6 +383,20 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
         const updatedMusician = { ...musicianData, website: finalWebsite.replace(/^https?:\/\//, '').replace(/^www\./, '') };
         setMusicianData(updatedMusician);
         setInitialMusicianData(updatedMusician);
+      }
+
+      // 4. Save Role Requests
+      for (const [role, request] of Object.entries(roleRequests)) {
+        if (request.active) {
+          const { error: requestError } = await supabase
+            .from('role_requests')
+            .insert({
+              user_id: user.id,
+              role_type: role,
+              request_details: request.details
+            });
+          if (requestError) throw requestError;
+        }
       }
 
       if (Object.keys(changes).length > 0) {
@@ -410,25 +467,29 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
   };
 
   const publicRoles: { id: UserRole, label: string, description: string }[] = [
-    { id: 'venue_manager', label: 'Venue Manager', description: 'Manage your music venue and events.' },
-    { id: 'band_manager', label: 'Band Manager', description: 'Manage your band, musicians, and bookings.' },
     { id: 'musician', label: 'Musician', description: 'Showcase your talent and find bands.' },
-    { id: 'event_attendee', label: 'Event Attendee', description: 'Find and follow your favorite music.' },
+    { id: 'guest', label: 'Guest', description: 'Find and follow your favorite music.' },
   ];
 
   const toggleRole = (roleId: UserRole) => {
+    let nextRoles: UserRole[];
     if (selectedRoles.includes(roleId)) {
-      if (selectedRoles.filter(r => publicRoles.some(pr => pr.id === r)).length <= 1 && !profile?.roles.includes('admin')) {
+      // Don't allow removing the last public role if not an admin
+      const currentPublicRoles = selectedRoles.filter(r => publicRoles.some(pr => pr.id === r));
+      if (currentPublicRoles.length <= 1 && !profile?.roles.includes('admin')) {
         return;
       }
-      setSelectedRoles(selectedRoles.filter(r => r !== roleId));
+      nextRoles = selectedRoles.filter(r => r !== roleId);
+      setSelectedRoles(nextRoles);
     } else {
-      setSelectedRoles([...selectedRoles, roleId]);
+      nextRoles = [...selectedRoles, roleId];
+      setSelectedRoles(nextRoles);
       // If re-selecting musician, try to fetch existing data if we don't have it
       if (roleId === 'musician' && !musicianData.id) {
         fetchMusicianProfile();
       }
     }
+    setDefaultRole(getPriorityDefaultRole(nextRoles));
   };
 
   return (
@@ -440,50 +501,47 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
 
       {/* Tabs */}
       <div className="flex bg-neutral-900 p-1 rounded-2xl border border-neutral-800 w-fit">
-        <button
+        <Button
+          variant={activeTab === 'account' ? 'primary' : 'ghost'}
           onClick={() => setActiveTab('account')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${
-            activeTab === 'account' ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'text-neutral-500 hover:text-neutral-300'
-          }`}
+          className="flex items-center gap-2"
         >
           <Settings size={18} />
           Account Settings
-        </button>
+        </Button>
         {selectedRoles.includes('musician') && (
-          <button
+          <Button
+            variant={activeTab === 'musician' ? 'primary' : 'ghost'}
             onClick={() => setActiveTab('musician')}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${
-              activeTab === 'musician' ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'text-neutral-500 hover:text-neutral-300'
-            }`}
+            className="flex items-center gap-2"
           >
             <Music size={18} />
             Musician Details
-          </button>
+          </Button>
         )}
-        <button
+        <Button
+          variant={activeTab === 'security' ? 'primary' : 'ghost'}
           onClick={() => setActiveTab('security')}
-          className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${
-            activeTab === 'security' ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'text-neutral-500 hover:text-neutral-300'
-          }`}
+          className="flex items-center gap-2"
         >
           <Shield size={18} />
           Security
-        </button>
+        </Button>
       </div>
 
       {activeTab === 'security' ? (
         <div className="bg-neutral-900 border border-neutral-800 rounded-[2.5rem] p-8 md:p-10 space-y-8">
           <div className="flex items-center gap-3 mb-2">
-            <Shield className="text-red-600" size={24} />
+            <Shield className="text-red-500" size={24} />
             <h3 className="text-xl font-bold text-white">Change Password</h3>
           </div>
           <p className="text-neutral-400 text-sm">Update your account password. We recommend using a strong, unique password.</p>
           
           <form onSubmit={handlePasswordChange} className="space-y-6 max-w-md">
             <div className="space-y-2">
-              <label className="text-sm font-bold text-neutral-500 uppercase tracking-widest">New Password</label>
+              <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">New Password</label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={18} />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
                 <input
                   type="password"
                   required
@@ -495,9 +553,9 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
               </div>
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-bold text-neutral-500 uppercase tracking-widest">Confirm New Password</label>
+              <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Confirm New Password</label>
               <div className="relative">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={18} />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
                 <input
                   type="password"
                   required
@@ -517,14 +575,13 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
               </div>
             )}
 
-            <button
+            <Button
               type="submit"
               disabled={changingPassword}
-              className="bg-red-600 hover:bg-red-700 text-white px-8 py-3 rounded-2xl font-bold flex items-center gap-3 transition-all shadow-lg shadow-red-600/20 disabled:opacity-50"
             >
-              {changingPassword ? <Loader2 className="animate-spin" size={20} /> : <Shield size={20} />}
+              {changingPassword ? <Loader2 className="animate-spin" size={20} /> : <Shield size={20} className="text-neutral-400" />}
               Update Password
-            </button>
+            </Button>
           </form>
         </div>
       ) : (
@@ -540,18 +597,20 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
                     {avatarUrl ? (
                       <>
                         <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                        <button
+                        <Button
                           type="button"
+                          variant="danger"
+                          size="sm"
                           onClick={() => setAvatarUrl('')}
-                          className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all z-10 opacity-0 group-hover:opacity-100"
+                          className="absolute top-2 right-2 p-1.5 shadow-lg z-10 opacity-0 group-hover:opacity-100"
                           title="Delete Profile Photo"
                         >
-                          <Trash2 size={14} />
-                        </button>
+                          <Trash2 size={14} className="text-red-500" />
+                        </Button>
                       </>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-neutral-600">
-                        <User size={48} />
+                        <User size={48} className="text-neutral-400" />
                       </div>
                     )}
                     <ImageUpload 
@@ -567,46 +626,40 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
                       <Camera size={24} className="text-white" />
                     </ImageUpload>
                   </div>
-                  <span className="text-xs font-bold text-neutral-500 uppercase tracking-widest">Profile Photo</span>
+                  <span className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Profile Photo</span>
                 </div>
 
                 <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
                   <div className="space-y-2">
-                    <label className="text-sm font-bold text-neutral-500 uppercase tracking-widest">First Name</label>
-                    <div className="relative">
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={18} />
-                      <input
-                        type="text"
-                        value={firstName || ''}
-                        onChange={(e) => setFirstName(e.target.value)}
-                        className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 pl-12 pr-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all"
-                        placeholder="John"
-                      />
-                    </div>
+                    <Input
+                      label="First Name"
+                      type="text"
+                      value={firstName || ''}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="John"
+                      icon={<User size={18} />}
+                    />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-bold text-neutral-500 uppercase tracking-widest">Last Name</label>
-                    <div className="relative">
-                      <User className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={18} />
-                      <input
-                        type="text"
-                        value={lastName || ''}
-                        onChange={(e) => setLastName(e.target.value)}
-                        className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 pl-12 pr-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all"
-                        placeholder="Doe"
-                      />
-                    </div>
+                    <Input
+                      label="Last Name"
+                      type="text"
+                      value={lastName || ''}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Doe"
+                      icon={<User size={18} />}
+                    />
                   </div>
                   <div className="space-y-2 md:col-span-2">
-                    <label className="text-sm font-bold text-neutral-500 uppercase tracking-widest">Email Address</label>
+                    <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Email Address</label>
                     <div className="relative">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={18} />
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
                       <input
                         type="email"
                         value={isEditingEmail ? newEmail : (user?.email || '')}
                         onChange={(e) => setNewEmail(e.target.value)}
                         disabled={!isEditingEmail || updatingEmail}
-                        className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 pl-12 pr-24 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all disabled:bg-neutral-800/50 disabled:text-neutral-500 disabled:cursor-not-allowed"
+                        className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 pl-12 pr-24 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all disabled:bg-neutral-800/50 disabled:text-neutral-400 disabled:cursor-not-allowed"
                         placeholder="new-email@example.com"
                       />
                       <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -641,9 +694,9 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-bold text-neutral-500 uppercase tracking-widest">Phone Number</label>
+                    <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Phone Number</label>
                     <div className="relative">
-                      <Phone className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${accountPhone && !validatePhone(accountPhone) ? 'text-red-500' : 'text-neutral-500'}`} size={18} />
+                      <Phone className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${accountPhone && !validatePhone(accountPhone) ? 'text-red-500' : 'text-neutral-400'}`} size={18} />
                       <input
                         type="tel"
                         value={accountPhone || ''}
@@ -661,13 +714,13 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
               {/* Address Section */}
               <div className="space-y-4 md:col-span-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-bold text-neutral-500 uppercase tracking-widest">Address Information</label>
+                  <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Address Information</label>
                   <div className="flex bg-neutral-800 p-1 rounded-xl border border-neutral-700">
                     <button
                       type="button"
                       onClick={() => setAddressParts({ ...addressParts, country: 'US', state: '' })}
                       className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                        addressParts.country === 'US' ? 'bg-red-600 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                        addressParts.country === 'US' ? 'bg-red-600 text-white' : 'text-neutral-400 hover:text-neutral-300'
                       }`}
                     >
                       USA
@@ -676,7 +729,7 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
                       type="button"
                       onClick={() => setAddressParts({ ...addressParts, country: 'CA', state: '' })}
                       className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                        addressParts.country === 'CA' ? 'bg-red-600 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                        addressParts.country === 'CA' ? 'bg-red-600 text-white' : 'text-neutral-400 hover:text-neutral-300'
                       }`}
                     >
                       CANADA
@@ -733,56 +786,84 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
               </div>
             </div>
 
-            {/* Roles */}
+              {/* Role Request Section */}
+              <div className="bg-neutral-900 border border-neutral-800 rounded-[2.5rem] p-8 md:p-10 space-y-6">
+                <div className="flex items-center gap-3 mb-2">
+                  <Shield className="text-red-500" size={24} />
+                  <h3 className="text-xl font-bold text-white">Request Business Access</h3>
+                </div>
+                <p className="text-neutral-400 text-sm">Select the roles you would like to request access for. An admin will review your request.</p>
+
+                {(['musician', 'band_manager', 'venue_manager'] as const).map((role) => (
+                  <div key={role} className="space-y-4 p-6 bg-neutral-800/30 border border-neutral-700/50 rounded-3xl">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-bold text-white uppercase tracking-widest">I am also an active {role.replace('_', ' ')}</label>
+                      <div className="flex items-center gap-4">
+                        <Button
+                          type="button"
+                          variant={roleRequests[role].active ? 'primary' : 'secondary'}
+                          size="sm"
+                          onClick={() => setRoleRequests(prev => ({ ...prev, [role]: { ...prev[role], active: true } }))}
+                        >
+                          Y
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={!roleRequests[role].active ? 'primary' : 'secondary'}
+                          size="sm"
+                          onClick={() => setRoleRequests(prev => ({ ...prev, [role]: { ...prev[role], active: false } }))}
+                        >
+                          N
+                        </Button>
+                      </div>
+                    </div>
+                    {roleRequests[role].active && (
+                      <textarea
+                        value={roleRequests[role].details}
+                        onChange={(e) => setRoleRequests(prev => ({ ...prev, [role]: { ...prev[role], details: e.target.value } }))}
+                        className="w-full bg-neutral-950 border border-neutral-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all"
+                        placeholder={`Tell us more about your role as a ${role.replace('_', ' ')}...`}
+                        rows={3}
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            {/* End Role Request Section */}
+
+            {/* Roles Section Removed - Managed by Admin */}
             <div className="bg-neutral-900 border border-neutral-800 rounded-[2.5rem] p-8 md:p-10 space-y-6">
               <div className="flex items-center gap-3 mb-2">
-                <Shield className="text-red-600" size={24} />
+                <Shield className="text-red-500" size={24} />
                 <h3 className="text-xl font-bold text-white">Account Roles</h3>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {publicRoles.map((role) => (
-                  <button
-                    key={role.id}
-                    type="button"
-                    onClick={() => toggleRole(role.id)}
-                    className={`flex flex-col p-6 rounded-3xl border text-left transition-all relative group ${
-                      selectedRoles.includes(role.id)
-                        ? 'bg-red-600/10 border-red-600'
-                        : 'bg-neutral-800 border-neutral-700 hover:border-neutral-600'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className={`font-bold ${selectedRoles.includes(role.id) ? 'text-white' : 'text-neutral-400'}`}>{role.label}</span>
-                      {selectedRoles.includes(role.id) && <div className="bg-red-600 rounded-full p-1"><Check size={12} className="text-white" /></div>}
-                    </div>
-                    <p className="text-xs text-neutral-500 leading-relaxed">{role.description}</p>
-                  </button>
-                ))}
+              
+              <div className="p-6 bg-neutral-800/30 border border-neutral-700/50 rounded-3xl">
+                <p className="text-xs text-neutral-400 leading-relaxed italic">
+                  Note: To become a <span className="text-white font-bold">Venue Manager</span>, <span className="text-white font-bold">Band Manager</span>, or <span className="text-white font-bold">Musician</span>, please contact the site administrator for approval and account linking.
+                </p>
               </div>
 
               {selectedRoles.length > 1 && (
                 <div className="mt-8 p-6 bg-neutral-800/50 border border-neutral-700 rounded-3xl space-y-4">
                   <div className="flex items-center gap-3">
-                    <Settings className="text-red-600" size={20} />
+                    <Settings className="text-red-500" size={20} />
                     <h4 className="font-bold text-white">Default Session Role</h4>
                   </div>
                   <p className="text-xs text-neutral-400">Choose which role should be active by default when you log in. You can always switch roles using the switcher in the navigation bar.</p>
                   <div className="flex flex-wrap gap-2">
                     {selectedRoles.map((roleId) => {
-                      const roleInfo = publicRoles.find(pr => pr.id === roleId) || (roleId === 'admin' ? { label: 'Super Admin' } : { label: roleId });
+                      const roleInfo = publicRoles.find(pr => pr.id === roleId) || (roleId === 'admin' ? { label: 'Super Admin' } : { label: roleId.replace('_', ' ') });
                       return (
-                        <button
+                        <Button
                           key={roleId}
                           type="button"
+                          variant={defaultRole === roleId ? 'primary' : 'secondary'}
+                          size="sm"
                           onClick={() => setDefaultRole(roleId)}
-                          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${
-                            defaultRole === roleId
-                              ? 'bg-red-600 border-red-600 text-white'
-                              : 'bg-neutral-900 border-neutral-700 text-neutral-500 hover:border-neutral-600'
-                          }`}
                         >
                           {roleInfo.label}
-                        </button>
+                        </Button>
                       );
                     })}
                   </div>
@@ -792,27 +873,55 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
           </div>
         ) : (
           <div className="bg-neutral-900 border border-neutral-800 rounded-[2.5rem] p-8 md:p-10 space-y-8">
+            <h3 className="text-xl font-bold text-white">Musician Details</h3>
+            
+            <div className="md:col-span-2 p-4 bg-neutral-800/50 rounded-2xl border border-neutral-700 flex flex-col gap-4">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="looking_for_bands"
+                  checked={musicianData.looking_for_bands}
+                  onChange={(e) => setMusicianData({ ...musicianData, looking_for_bands: e.target.checked })}
+                  className="w-5 h-5 rounded border-neutral-700 bg-neutral-800 text-red-500 focus:ring-red-600"
+                />
+                <label htmlFor="looking_for_bands" className="text-sm font-medium text-neutral-200 cursor-pointer">
+                  I am currently looking for bands or events to join
+                </label>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="open_for_gigs"
+                  checked={musicianData.open_for_gigs}
+                  onChange={(e) => setMusicianData({ ...musicianData, open_for_gigs: e.target.checked })}
+                  className="w-5 h-5 rounded border-neutral-700 bg-neutral-800 text-red-500 focus:ring-red-600"
+                />
+                <label htmlFor="open_for_gigs" className="text-sm font-medium text-neutral-200 cursor-pointer">
+                  I am open for gigs
+                </label>
+              </div>
+            </div>
+
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-red-600/10 border border-red-600/20 p-6 rounded-2xl">
               <div>
                 <h3 className="text-lg font-bold text-white mb-1">Book Gigs as a Solo Act?</h3>
                 <p className="text-sm text-neutral-400">Generate a Band profile from your musician details so venues can book you.</p>
               </div>
-              <button
+              <Button
                 type="button"
                 onClick={handleCreateSoloAct}
                 disabled={saving}
-                className="shrink-0 bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-xl font-bold transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {saving ? <Loader2 className="animate-spin" size={18} /> : <Music size={18} />}
                 Create Solo Act
-              </button>
+              </Button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <label className="text-sm font-bold text-neutral-500 uppercase tracking-widest">Musician Phone</label>
+                <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Musician Phone</label>
                 <div className="relative">
-                  <Phone className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${musicianData.phone && !validatePhone(musicianData.phone) ? 'text-red-500' : 'text-neutral-500'}`} size={18} />
+                  <Phone className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${musicianData.phone && !validatePhone(musicianData.phone) ? 'text-red-500' : 'text-neutral-400'}`} size={18} />
                   <input
                     type="tel"
                     value={musicianData.phone || ''}
@@ -825,9 +934,9 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-bold text-neutral-500 uppercase tracking-widest">Personal Website</label>
+                <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Personal Website</label>
                 <div className="relative flex items-center">
-                  <Globe className="absolute left-4 text-neutral-500" size={18} />
+                  <Globe className="absolute left-4 text-neutral-400" size={18} />
                   <input
                     type="text"
                     value={musicianData.website || ''}
@@ -838,7 +947,7 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
                 </div>
               </div>
               <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-bold text-neutral-500 uppercase tracking-widest">Bio / Description</label>
+                <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Bio / Description</label>
                 <textarea
                   rows={4}
                   value={musicianData.description || ''}
@@ -847,21 +956,8 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
                 />
               </div>
               
-              <div className="md:col-span-2 p-4 bg-neutral-800/50 rounded-2xl border border-neutral-700 flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="looking_for_bands"
-                  checked={musicianData.looking_for_bands}
-                  onChange={(e) => setMusicianData({ ...musicianData, looking_for_bands: e.target.checked })}
-                  className="w-5 h-5 rounded border-neutral-700 bg-neutral-800 text-red-600 focus:ring-red-600"
-                />
-                <label htmlFor="looking_for_bands" className="text-sm font-medium text-neutral-200 cursor-pointer">
-                  I am currently looking for bands or events to join
-                </label>
-              </div>
-
               <div className="md:col-span-2 space-y-4">
-                <label className="text-sm font-bold text-neutral-500 uppercase tracking-widest">Instruments</label>
+                <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Instruments</label>
                 <div className="flex flex-wrap gap-2">
                   {['Guitar', 'Bass', 'Drums', 'Vocals', 'Keyboard', 'Saxophone', 'Trumpet', 'Violin'].map((inst) => (
                     <button
@@ -889,8 +985,8 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
 
               <div className="md:col-span-2 space-y-4">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-bold text-neutral-500 uppercase tracking-widest">Video Links (Up to 5)</label>
-                  <span className="text-xs text-neutral-500">{musicianData.video_links?.length || 0} / 5</span>
+                  <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Video Links (Up to 5)</label>
+                  <span className="text-xs text-neutral-400">{musicianData.video_links?.length || 0} / 5</span>
                 </div>
                 <div className="space-y-2">
                   {musicianData.video_links?.map((link, idx) => (
@@ -912,7 +1008,7 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
                         const url = prompt('Enter video URL:');
                         if (url) setMusicianData({ ...musicianData, video_links: [...(musicianData.video_links || []), url] });
                       }}
-                      className="w-full border border-dashed border-neutral-700 rounded-xl py-3 text-neutral-500 hover:border-red-600 hover:text-red-600 transition-all flex items-center justify-center gap-2"
+                      className="w-full border border-dashed border-neutral-700 rounded-xl py-3 text-neutral-400 hover:border-red-600 hover:text-red-500 transition-all flex items-center justify-center gap-2"
                     >
                       <Video size={18} />
                       <span className="text-sm font-bold uppercase tracking-widest">Add Video Link</span>

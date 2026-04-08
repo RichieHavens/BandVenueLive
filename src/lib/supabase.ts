@@ -22,6 +22,12 @@ export const supabase = createClient(
   validUrl,
   supabaseAnonKey || 'placeholder-key',
   {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storage: window.localStorage
+    },
     global: {
       fetch: (...args) => {
         if (!isConfigured) {

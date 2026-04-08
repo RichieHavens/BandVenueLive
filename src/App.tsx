@@ -4,7 +4,7 @@ import { NavigationProvider, useNavigationContext } from './context/NavigationCo
 import AuthUI from './components/AuthUI';
 import Navigation from './components/Navigation';
 import VenueProfileEditor from './components/VenueProfileEditor';
-import BandProfileEditor from './components/BandProfileEditor';
+import { BandProfileEditor } from './components/BandProfileEditor';
 import EventProfileEditor from './components/EventProfileEditor';
 import ProfileManager from './components/ProfileManager';
 import EventManager from './components/EventManager';
@@ -12,18 +12,23 @@ import DisclaimerOverlay from './components/DisclaimerOverlay';
 import ResetPasswordView from './components/ResetPasswordView';
 import AboutModal from './components/AboutModal';
 import EventDetailsModal from './components/EventDetailsModal';
+import BandConfirmationPage from './components/BandConfirmationPage';
 import { Toaster } from 'sonner';
 import SupabaseErrorBoundary from './components/SupabaseErrorBoundary';
 
 // Pages
 import { EventsView } from './pages/EventsView';
+import { DashboardView } from './pages/DashboardView';
 import { VenuesView } from './pages/VenuesView';
 import { BandsView } from './pages/BandsView';
 import { MusiciansView } from './pages/MusiciansView';
 import { FavoritesView } from './pages/FavoritesView';
 import { SyndicationManagerView } from './pages/SyndicationManagerView';
 import { AdminView } from './pages/AdminView';
+import { AdminRoleRequestsView } from './pages/AdminRoleRequestsView';
+import { SuperAdminDashboard } from './pages/SuperAdminDashboard';
 import { VenueManagerAdmin } from './pages/VenueManagerAdmin';
+import { BandManagerAdmin } from './pages/BandManagerAdmin';
 
 import { 
   Loader2, LogOut, Music, Calendar, MapPin, Users, Settings, 
@@ -40,11 +45,24 @@ function AppContent() {
     setUnsavedChanges, 
     pendingTab, 
     setPendingTab, 
-    confirmNavigation 
+    confirmNavigation,
+    selectedBandId,
+    selectedEventId
   } = useNavigationContext();
   
   const [isResettingPassword, setIsResettingPassword] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (unsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [unsavedChanges]);
 
   useEffect(() => {
     // Check if we are in a password reset flow
@@ -56,6 +74,11 @@ function AppContent() {
     // Also check for the specific route we set in AuthUI
     if (window.location.pathname === '/reset-password') {
       setIsResettingPassword(true);
+    }
+
+    // Check for confirmation route
+    if (window.location.pathname.startsWith('/confirm-event/')) {
+      setActiveTab('confirm-event');
     }
   }, []);
 
@@ -114,24 +137,30 @@ function AppContent() {
       <Navigation />
 
       {/* Main Content */}
-      <main className="pt-20 pb-24 md:pt-32 md:pb-12 max-w-7xl mx-auto px-4">
-        {!user && !['events', 'venues', 'bands', 'musicians', 'login'].includes(activeTab) ? (
+      <main className="pt-6 pb-24 md:pt-24 md:pb-12 max-w-7xl mx-auto px-4">
+        {!user && !['events', 'venues', 'bands', 'musicians', 'login', 'confirm-event'].includes(activeTab) ? (
           <AuthUI />
         ) : (
           <>
             {activeTab === 'events' && <EventsView />}
+            {activeTab === 'dashboard' && <DashboardView />}
             {activeTab === 'manage-events' && <EventManager />}
             {activeTab === 'venues' && <VenuesView />}
             {activeTab === 'bands' && <BandsView />}
             {activeTab === 'musicians' && <MusiciansView />}
             {activeTab === 'my-venue' && <VenueProfileEditor onDirtyChange={setUnsavedChanges} onSaveSuccess={() => { setUnsavedChanges(false); setActiveTab('events'); }} />}
-            {activeTab === 'my-band' && <BandProfileEditor onDirtyChange={setUnsavedChanges} onSaveSuccess={() => { setUnsavedChanges(false); setActiveTab('events'); }} />}
+            {activeTab === 'my-band' && <BandProfileEditor bandId={selectedBandId || undefined} onDirtyChange={setUnsavedChanges} onSaveSuccess={() => { setUnsavedChanges(false); setActiveTab('events'); }} />}
+            {activeTab === 'my-event' && <EventProfileEditor eventId={selectedEventId || ''} onDirtyChange={setUnsavedChanges} onSaveSuccess={() => { setUnsavedChanges(false); setActiveTab('events'); }} />}
             {activeTab === 'my-profile' && <ProfileManager onDirtyChange={setUnsavedChanges} onSaveSuccess={() => { setUnsavedChanges(false); setActiveTab('events'); }} />}
             {activeTab === 'admin' && <AdminView />}
+            {activeTab === 'super-admin' && <SuperAdminDashboard />}
+            {activeTab === 'role-requests' && <AdminRoleRequestsView />}
             {activeTab === 'venue-manager' && <VenueManagerAdmin />}
+            {activeTab === 'band-manager' && <BandManagerAdmin />}
             {activeTab === 'syndication' && <SyndicationManagerView />}
             {activeTab === 'favorites' && <FavoritesView />}
-            {activeTab === 'login' && <AuthUI onSuccess={() => setActiveTab('events')} />}
+            {activeTab === 'login' && <AuthUI />}
+            {activeTab === 'confirm-event' && <BandConfirmationPage eventId={window.location.pathname.split('/')[2]} />}
 
             {/* Footer About Us */}
             <div className="mt-20 pt-8 border-t border-neutral-900 flex flex-col items-center gap-4">

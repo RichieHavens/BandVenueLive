@@ -19,7 +19,7 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
       >
         <button 
           onClick={onClose}
-          className="absolute top-6 right-6 text-neutral-500 hover:text-white transition-colors"
+          className="absolute top-6 right-6 text-neutral-400 hover:text-cyan-400 transition-colors"
         >
           <X size={20} />
         </button>
@@ -40,10 +40,10 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
           </p>
         </div>
         <div className="pt-6 border-t border-neutral-800">
-          <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">General Inquiries</p>
+          <p className="text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">General Inquiries</p>
           <a 
             href="mailto:inquiries@bandvenue.com" 
-            className="text-white hover:text-red-600 transition-colors font-medium text-sm"
+            className="text-white hover:text-red-500 transition-colors font-medium text-sm"
           >
             inquiries@bandvenue.com
           </a>

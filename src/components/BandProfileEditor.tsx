@@ -2,16 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../AuthContext';
 import { Band } from '../types';
-import { Save, Loader2, Trash2, Plus, Video, Eye, Image as ImageIcon, MapPin } from 'lucide-react';
+import { Save, Loader2, Trash2, Plus, Video, Eye, Image as ImageIcon, MapPin, User, Mail, Phone, Globe, Linkedin, Youtube, Instagram, Facebook, Twitter, Music } from 'lucide-react';
 import { US_STATES, CA_PROVINCES, AddressParts, formatAddress, parseAddress, validateZipForState } from '../lib/geo';
 import ImageUpload from './ImageUpload';
-import StockImagePicker from './StockImagePicker';
 import { formatPhoneNumber } from '../lib/phoneFormatter';
 import ProfilePreviewModal from './ProfilePreviewModal';
 import { handleSupabaseError, OperationType } from '../lib/error-handler';
 import BandMembersManager from './BandMembersManager';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Card } from './ui/Card';
+import { theme } from '../lib/theme';
+import { cn } from '../lib/utils';
 
-export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess }: { bandId?: string, onDirtyChange?: (dirty: boolean) => void, onSaveSuccess?: () => void }) {
+interface BandProfileEditorProps {
+  bandId?: string;
+  onDirtyChange?: (dirty: boolean) => void;
+  onSaveSuccess?: () => void;
+}
+
+export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, onDirtyChange, onSaveSuccess }) => {
   const { user, profile } = useAuth();
   const [band, setBand] = useState<Partial<Band>>({
     name: '',
@@ -44,8 +54,6 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const [isStockPickerOpen, setIsStockPickerOpen] = useState(false);
-  const [stockPickerConfig, setStockPickerConfig] = useState<{ type: 'hero' | 'logo', category: 'venue' | 'band' | 'generic' }>({ type: 'hero', category: 'band' });
 
   useEffect(() => {
     if (!initialBand) return;
@@ -150,8 +158,8 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
         const cleanedData = {
           ...defaultBand,
           ...data,
-          phone: data.phone || profile?.phone || '',
-          email: data.email || profile?.email || '',
+          phone: data.phone || '',
+          email: data.email || '',
           logo_url: data.logo_url || '',
           hero_url: data.hero_url || '',
           images: data.images || [],
@@ -261,39 +269,40 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
     }
   }
 
-  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-red-600" /></div>;
+  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-red-500" /></div>;
 
   return (
     <div className="space-y-8">
-      <form onSubmit={handleSave} className="max-w-4xl mx-auto space-y-8 bg-neutral-900 p-8 rounded-3xl border border-neutral-800">
+      <form onSubmit={handleSave} className={cn("max-w-4xl mx-auto space-y-8", theme.card)}>
         <div className="flex items-center justify-between">
           <h2 className="text-3xl font-bold">Band Profile{band.name ? `: ${band.name}` : ''}</h2>
           <div className="flex items-center gap-4">
             {band.id && (
-              <button
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={() => document.getElementById('band-members-section')?.scrollIntoView({ behavior: 'smooth' })}
-                className="bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-xl font-semibold flex items-center gap-2 transition-all"
               >
                 Manage Members
-              </button>
+              </Button>
             )}
-            <button
+            <Button
               type="button"
+              variant="secondary"
               onClick={() => setShowPreview(true)}
-              className="bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-xl font-semibold flex items-center gap-2 transition-all"
+              className="group"
             >
-              <Eye size={20} />
+              <Eye size={20} className="text-neutral-400 group-hover:text-cyan-400 transition-colors" />
               <span className="hidden sm:inline">Preview</span>
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={saving}
-              className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-xl font-semibold flex items-center gap-2 transition-all disabled:opacity-50"
+              className="group"
             >
-              {saving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
+              {saving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} className="text-neutral-400 group-hover:text-cyan-400 transition-colors" />}
               Save Changes
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -313,64 +322,52 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
         />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Band Name</label>
-            <input
-              type="text"
-              required
-              value={band.name || ''}
-              onChange={(e) => setBand({ ...band, name: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
-            />
-          </div>
+          <Input
+            label="Band Name"
+            type="text"
+            required
+            value={band.name || ''}
+            onChange={(e) => setBand({ ...band, name: e.target.value })}
+          />
           <div className="space-y-4 md:col-span-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-bold text-neutral-500 uppercase tracking-widest">Address Information</label>
+              <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Address Information</label>
               <div className="flex bg-neutral-800 p-1 rounded-xl border border-neutral-700">
-                <button
+                <Button
                   type="button"
+                  variant={addressParts.country === 'US' ? 'primary' : 'secondary'}
+                  size="sm"
                   onClick={() => setAddressParts({ ...addressParts, country: 'US', state: '' })}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    addressParts.country === 'US' ? 'bg-red-600 text-white' : 'text-neutral-500 hover:text-neutral-300'
-                  }`}
                 >
                   USA
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant={addressParts.country === 'CA' ? 'primary' : 'secondary'}
+                  size="sm"
                   onClick={() => setAddressParts({ ...addressParts, country: 'CA', state: '' })}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    addressParts.country === 'CA' ? 'bg-red-600 text-white' : 'text-neutral-500 hover:text-neutral-300'
-                  }`}
                 >
                   CANADA
-                </button>
+                </Button>
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2 space-y-2">
-                <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">Street Address</label>
-                <input
-                  type="text"
-                  value={addressParts.street || ''}
-                  onChange={(e) => setAddressParts({ ...addressParts, street: e.target.value })}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all"
-                  placeholder="123 Music Ave"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">City</label>
-                <input
-                  type="text"
-                  value={addressParts.city || ''}
-                  onChange={(e) => setAddressParts({ ...addressParts, city: e.target.value })}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all"
-                  placeholder="Nashville"
-                />
-              </div>
-
+              <Input
+                label="Street Address"
+                type="text"
+                value={addressParts.street || ''}
+                onChange={(e) => setAddressParts({ ...addressParts, street: e.target.value })}
+                placeholder="123 Music Ave"
+                className="md:col-span-2"
+              />
+              <Input
+                label="City"
+                type="text"
+                value={addressParts.city || ''}
+                onChange={(e) => setAddressParts({ ...addressParts, city: e.target.value })}
+                placeholder="Nashville"
+              />
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">
@@ -379,7 +376,7 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
                   <select
                     value={addressParts.state || ''}
                     onChange={(e) => setAddressParts({ ...addressParts, state: e.target.value })}
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all appearance-none"
+                    className={theme.input}
                   >
                     <option value="">Select...</option>
                     {(addressParts.country === 'US' ? US_STATES : CA_PROVINCES).map((item) => (
@@ -387,55 +384,45 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
                     ))}
                   </select>
                 </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">
-                    {addressParts.country === 'US' ? 'Zip Code' : 'Postal Code'}
-                  </label>
-                  <input
-                    type="text"
-                    value={addressParts.zip || ''}
-                    onChange={(e) => setAddressParts({ ...addressParts, zip: e.target.value })}
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all"
-                    placeholder={addressParts.country === 'US' ? '37201' : 'M5V 2T6'}
-                  />
-                </div>
+                <Input
+                  label={addressParts.country === 'US' ? 'Zip Code' : 'Postal Code'}
+                  type="text"
+                  value={addressParts.zip || ''}
+                  onChange={(e) => setAddressParts({ ...addressParts, zip: e.target.value })}
+                  placeholder={addressParts.country === 'US' ? '37201' : 'M5V 2T6'}
+                />
               </div>
             </div>
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Phone</label>
-            <input
-              type="tel"
-              value={band.phone || ''}
-              onChange={(e) => setBand({ ...band, phone: formatPhoneNumber(e.target.value) })}
-              placeholder="(555) 000-0000"
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Email</label>
-            <input
-              type="email"
-              value={band.email || ''}
-              onChange={(e) => setBand({ ...band, email: e.target.value })}
-              placeholder="band@email.com"
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
-            />
-          </div>
+          <Input
+            label="Phone"
+            type="tel"
+            value={band.phone || ''}
+            onChange={(e) => setBand({ ...band, phone: formatPhoneNumber(e.target.value) })}
+            placeholder="(555) 000-0000"
+            icon={<Phone size={18} className="text-neutral-400" />}
+          />
+          <Input
+            label="Email"
+            type="email"
+            value={band.email || ''}
+            onChange={(e) => setBand({ ...band, email: e.target.value })}
+            placeholder="band@email.com"
+            icon={<Mail size={18} className="text-neutral-400" />}
+          />
           <div className="space-y-2 md:col-span-2">
-            <label className="text-sm font-medium text-neutral-400">Description</label>
+            <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Description</label>
             <textarea
               rows={4}
               value={band.description || ''}
               onChange={(e) => setBand({ ...band, description: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all resize-none"
+              className={theme.input}
             />
           </div>
           <div className="space-y-4 md:col-span-2">
-            <label className="text-sm font-medium text-neutral-400">Band Logo (Square - 400x400 preferred)</label>
+            <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Band Logo (Square - 400x400 preferred)</label>
             <div className="flex items-center gap-6">
-              <div className="w-32 h-32 bg-neutral-800 rounded-2xl overflow-hidden border border-neutral-700 relative group">
+              <div className="w-32 h-32 bg-neutral-950 rounded-2xl overflow-hidden border border-neutral-700 relative group">
                 {band.logo_url ? (
                   <>
                     <img src={band.logo_url} alt="Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -445,12 +432,12 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
                       className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all z-10"
                       title="Delete Logo"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={14} className="text-white" />
                     </button>
                   </>
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-neutral-600">
-                    <ImageIcon size={32} />
+                    <ImageIcon size={32} className="text-neutral-400" />
                   </div>
                 )}
               </div>
@@ -464,24 +451,13 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
               >
                 Upload Logo
               </ImageUpload>
-              <button
-                type="button"
-                onClick={() => {
-                  setStockPickerConfig({ type: 'logo', category: 'band' });
-                  setIsStockPickerOpen(true);
-                }}
-                className="bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-neutral-700 flex items-center gap-2"
-              >
-                <ImageIcon size={16} />
-                Stock Library
-              </button>
             </div>
           </div>
 
           <div className="space-y-4 md:col-span-2">
-            <label className="text-sm font-medium text-neutral-400">Hero Banner (Wide - 1920x1080 preferred)</label>
+            <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Hero Banner (Wide - 1920x1080 preferred)</label>
             <div className="space-y-4">
-              <div className="w-full h-32 bg-neutral-800 rounded-2xl overflow-hidden border border-neutral-700 relative group">
+              <div className="w-full h-32 bg-neutral-950 rounded-2xl overflow-hidden border border-neutral-700 relative group">
                 {band.hero_url ? (
                   <>
                     <img src={band.hero_url} alt="Hero" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
@@ -491,12 +467,12 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
                       className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all z-10"
                       title="Delete Hero Banner"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={14} className="text-white" />
                     </button>
                   </>
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-neutral-600">
-                    <ImageIcon size={32} />
+                    <ImageIcon size={32} className="text-neutral-400" />
                   </div>
                 )}
               </div>
@@ -510,128 +486,91 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
               >
                 Upload Hero Banner
               </ImageUpload>
-              <button
-                type="button"
-                onClick={() => {
-                  setStockPickerConfig({ type: 'hero', category: 'band' });
-                  setIsStockPickerOpen(true);
-                }}
-                className="bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-neutral-700 flex items-center gap-2"
-              >
-                <ImageIcon size={16} />
-                Stock Library
-              </button>
             </div>
           </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Website</label>
-            <input
-              type="text"
-              value={band.website || ''}
-              onChange={(e) => setBand({ ...band, website: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">LinkedIn URL</label>
-            <input
-              type="text"
-              value={band.linkedin_url || ''}
-              onChange={(e) => setBand({ ...band, linkedin_url: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Pinterest URL</label>
-            <input
-              type="text"
-              value={band.pinterest_url || ''}
-              onChange={(e) => setBand({ ...band, pinterest_url: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">YouTube Channel URL</label>
-            <input
-              type="text"
-              value={band.youtube_url || ''}
-              onChange={(e) => setBand({ ...band, youtube_url: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Instagram URL</label>
-            <input
-              type="text"
-              value={band.instagram_url || ''}
-              onChange={(e) => setBand({ ...band, instagram_url: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Apple Music URL</label>
-            <input
-              type="text"
-              value={band.apple_music_url || ''}
-              onChange={(e) => setBand({ ...band, apple_music_url: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Spotify URL</label>
-            <input
-              type="text"
-              value={band.spotify_url || ''}
-              onChange={(e) => setBand({ ...band, spotify_url: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Facebook URL</label>
-            <input
-              type="text"
-              value={band.facebook_url || ''}
-              onChange={(e) => setBand({ ...band, facebook_url: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Twitter (X) URL</label>
-            <input
-              type="text"
-              value={band.twitter_url || ''}
-              onChange={(e) => setBand({ ...band, twitter_url: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
-            />
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-sm font-medium text-neutral-400">Description</label>
-            <textarea
-              rows={4}
-              value={band.description || ''}
-              onChange={(e) => setBand({ ...band, description: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all resize-none"
-            />
-          </div>
+          <Input
+            label="Website"
+            type="text"
+            value={band.website || ''}
+            onChange={(e) => setBand({ ...band, website: e.target.value })}
+            icon={<Globe size={18} className="text-neutral-400" />}
+          />
+          <Input
+            label="LinkedIn URL"
+            type="text"
+            value={band.linkedin_url || ''}
+            onChange={(e) => setBand({ ...band, linkedin_url: e.target.value })}
+            icon={<Linkedin size={18} className="text-neutral-400" />}
+          />
+          <Input
+            label="Pinterest URL"
+            type="text"
+            value={band.pinterest_url || ''}
+            onChange={(e) => setBand({ ...band, pinterest_url: e.target.value })}
+          />
+          <Input
+            label="YouTube Channel URL"
+            type="text"
+            value={band.youtube_url || ''}
+            onChange={(e) => setBand({ ...band, youtube_url: e.target.value })}
+            icon={<Youtube size={18} className="text-neutral-400" />}
+          />
+          <Input
+            label="Instagram URL"
+            type="text"
+            value={band.instagram_url || ''}
+            onChange={(e) => setBand({ ...band, instagram_url: e.target.value })}
+            icon={<Instagram size={18} className="text-neutral-400" />}
+          />
+          <Input
+            label="Apple Music URL"
+            type="text"
+            value={band.apple_music_url || ''}
+            onChange={(e) => setBand({ ...band, apple_music_url: e.target.value })}
+            icon={<Music size={18} className="text-neutral-400" />}
+          />
+          <Input
+            label="Spotify URL"
+            type="text"
+            value={band.spotify_url || ''}
+            onChange={(e) => setBand({ ...band, spotify_url: e.target.value })}
+            icon={<Music size={18} className="text-neutral-400" />}
+          />
+          <Input
+            label="Facebook URL"
+            type="text"
+            value={band.facebook_url || ''}
+            onChange={(e) => setBand({ ...band, facebook_url: e.target.value })}
+            icon={<Facebook size={18} className="text-neutral-400" />}
+          />
+          <Input
+            label="Twitter (X) URL"
+            type="text"
+            value={band.twitter_url || ''}
+            onChange={(e) => setBand({ ...band, twitter_url: e.target.value })}
+            icon={<Twitter size={18} className="text-neutral-400" />}
+          />
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-neutral-400">Images (Up to 5)</label>
-            <span className="text-xs text-neutral-500">{band.images?.length || 0} / 5</span>
+            <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Images (Up to 5)</label>
+            <span className="text-xs text-neutral-400">{band.images?.length || 0} / 5</span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {band.images?.map((img, idx) => (
-              <div key={idx} className="aspect-square bg-neutral-800 rounded-2xl relative group overflow-hidden">
+              <div key={idx} className="aspect-square bg-neutral-950 rounded-2xl relative group overflow-hidden border border-neutral-700">
                 <img src={img} alt="Band" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                <button
+                <Button
                   type="button"
+                  variant="danger"
+                  size="sm"
                   onClick={() => setBand(prev => ({ ...prev, images: prev.images?.filter((_, i) => i !== idx) }))}
-                  className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all z-10"
+                  className="absolute top-2 right-2 p-1.5 group"
                   title="Delete Image"
                 >
-                  <Trash2 size={14} />
-                </button>
+                  <Trash2 size={14} className="text-red-500 group-hover:text-white" />
+                </Button>
               </div>
             ))}
             {(band.images?.length || 0) < 5 && (
@@ -642,17 +581,17 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
                     setBand(prev => ({ ...prev, images: [...(prev.images || []), url] }));
                   }
                 }}
-                className="aspect-square border-2 border-dashed border-neutral-700 rounded-2xl flex flex-col items-center justify-center text-neutral-500 hover:border-red-600 hover:text-red-600 transition-all cursor-pointer"
+                className="aspect-square border-2 border-dashed border-neutral-700 rounded-2xl flex flex-col items-center justify-center text-neutral-400 hover:border-red-600 hover:text-red-500 transition-all cursor-pointer"
               />
             )}
           </div>
         </div>
 
         <div className="space-y-4">
-          <label className="text-sm font-medium text-neutral-400">Video Links</label>
+          <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Video Links</label>
           {band.video_links?.map((link, idx) => (
             <div key={idx} className="flex gap-2">
-              <input
+              <Input
                 type="text"
                 value={link || ''}
                 onChange={(e) => {
@@ -660,24 +599,24 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
                   newLinks[idx] = e.target.value;
                   setBand({ ...band, video_links: newLinks });
                 }}
-                className="flex-1 bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
               />
-              <button
+              <Button
                 type="button"
+                variant="danger"
                 onClick={() => setBand({ ...band, video_links: band.video_links?.filter((_, i) => i !== idx) })}
-                className="p-3 text-red-500 hover:bg-red-500/10 rounded-xl transition-all"
+                className="group"
               >
-                <Trash2 size={20} />
-              </button>
+                <Trash2 size={20} className="text-red-500 group-hover:text-white" />
+              </Button>
             </div>
           ))}
-          <button
+          <Button
             type="button"
+            variant="secondary"
             onClick={() => setBand({ ...band, video_links: [...(band.video_links || []), ''] })}
-            className="flex items-center gap-2 text-red-600 font-semibold hover:text-red-500 transition-all"
           >
-            <Plus size={20} /> Add Video Link
-          </button>
+            <Plus size={20} className="text-neutral-400" /> Add Video Link
+          </Button>
         </div>
 
         {/* Status & Visibility */}
@@ -693,33 +632,25 @@ export default function BandProfileEditor({ bandId, onDirtyChange, onSaveSuccess
                 checked={band.is_published || false}
                 onChange={(e) => setBand({ ...band, is_published: e.target.checked })}
               />
-              <div className={`w-12 h-6 rounded-full transition-colors relative ${band.is_published ? 'bg-green-500' : 'bg-neutral-700'}`}>
-                <div className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${band.is_published ? 'translate-x-6' : 'translate-x-0'}`} />
+              <div className={cn(
+                "w-12 h-6 rounded-full transition-colors relative",
+                band.is_published ? "bg-blue-600" : "bg-neutral-700"
+              )}>
+                <div className={cn(
+                  "absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform",
+                  band.is_published ? "translate-x-6" : "translate-x-0"
+                )} />
               </div>
               <span className="font-semibold text-neutral-300 group-hover:text-white transition-colors">Published</span>
             </label>
           </div>
-          <p className="text-sm text-neutral-500">
+          <p className="text-sm text-neutral-400">
             When published, this band profile will be visible on the public band listing page.
           </p>
         </div>
       </form>
 
       <BandMembersManager bandId={band.id || 'new'} />
-
-      <StockImagePicker 
-        isOpen={isStockPickerOpen}
-        onClose={() => setIsStockPickerOpen(false)}
-        type={stockPickerConfig.type}
-        category={stockPickerConfig.category}
-        onSelect={(img) => {
-          if (stockPickerConfig.type === 'logo') {
-            setBand(prev => ({ ...prev, logo_url: img.url }));
-          } else {
-            setBand(prev => ({ ...prev, hero_url: img.url }));
-          }
-        }}
-      />
 
       {showPreview && (
         <ProfilePreviewModal 

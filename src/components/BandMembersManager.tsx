@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { BandMember } from '../types';
 import { Plus, Trash2, Edit2, Loader2, X, Check } from 'lucide-react';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Card } from './ui/Card';
 import { handleSupabaseError, OperationType } from '../lib/error-handler';
 
 interface BandMembersManagerProps {
@@ -155,7 +158,7 @@ export default function BandMembersManager({ bandId }: BandMembersManagerProps) 
     return (
       <div className="max-w-4xl mx-auto mt-12 pt-8 border-t border-neutral-800">
         <h3 className="text-2xl font-bold mb-6">Band Members</h3>
-        <p className="text-neutral-500">Please save the band profile first before adding members.</p>
+        <p className="text-neutral-400">Please save the band profile first before adding members.</p>
       </div>
     );
   }
@@ -164,25 +167,25 @@ export default function BandMembersManager({ bandId }: BandMembersManagerProps) 
     <div id="band-members-section" className="max-w-4xl mx-auto mt-12 pt-8 border-t border-neutral-800">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-2xl font-bold">Band Members</h3>
-        <button
+        <Button
           type="button"
           onClick={() => {
             setEditingMember({ is_active: true });
             setIsModalOpen(true);
           }}
-          className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl text-sm font-bold transition-all"
+          className="group"
         >
-          <Plus size={16} /> Add Member
-        </button>
+          <Plus size={16} className="text-white mr-2" /> Add Member
+        </Button>
       </div>
 
       {loading ? (
         <div className="flex justify-center py-8">
-          <Loader2 className="animate-spin text-red-600" size={32} />
+          <Loader2 className="animate-spin text-red-500" size={32} />
         </div>
       ) : members.length === 0 ? (
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-8 text-center">
-          <p className="text-neutral-500">No members added yet.</p>
+          <p className="text-neutral-400">No members added yet.</p>
         </div>
       ) : (
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden">
@@ -190,11 +193,11 @@ export default function BandMembersManager({ bandId }: BandMembersManagerProps) 
             <table className="w-full text-left">
               <thead className="bg-neutral-950 border-b border-neutral-800">
                 <tr>
-                  <th className="px-6 py-4 text-xs font-bold text-neutral-500 uppercase tracking-widest">Name</th>
-                  <th className="px-6 py-4 text-xs font-bold text-neutral-500 uppercase tracking-widest">Email</th>
-                  <th className="px-6 py-4 text-xs font-bold text-neutral-500 uppercase tracking-widest">Instrument</th>
-                  <th className="px-6 py-4 text-xs font-bold text-neutral-500 uppercase tracking-widest">Status</th>
-                  <th className="px-6 py-4 text-xs font-bold text-neutral-500 uppercase tracking-widest text-right">Actions</th>
+                  <th className="px-6 py-4 text-xs font-bold text-neutral-400 uppercase tracking-widest">Name</th>
+                  <th className="px-6 py-4 text-xs font-bold text-neutral-400 uppercase tracking-widest">Email</th>
+                  <th className="px-6 py-4 text-xs font-bold text-neutral-400 uppercase tracking-widest">Instrument</th>
+                  <th className="px-6 py-4 text-xs font-bold text-neutral-400 uppercase tracking-widest">Status</th>
+                  <th className="px-6 py-4 text-xs font-bold text-neutral-400 uppercase tracking-widest text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-neutral-800">
@@ -204,27 +207,26 @@ export default function BandMembersManager({ bandId }: BandMembersManagerProps) 
                     <td className="px-6 py-4 text-neutral-400">{member.email}</td>
                     <td className="px-6 py-4 text-neutral-400">{member.instrument_description}</td>
                     <td className="px-6 py-4">
-                      <button
+                      <Button
+                        variant={member.is_active ? 'primary' : 'secondary'}
+                        size="sm"
                         onClick={() => toggleStatus(member)}
-                        className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider transition-colors ${
-                          member.is_active 
-                            ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20' 
-                            : 'bg-neutral-800 text-neutral-500 hover:bg-neutral-700'
-                        }`}
                       >
                         {member.is_active ? 'Active' : 'Inactive'}
-                      </button>
+                      </Button>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={() => {
                           setEditingMember(member);
                           setIsModalOpen(true);
                         }}
-                        className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg transition-all"
+                        className="group"
                       >
-                        <Edit2 size={16} />
-                      </button>
+                        <Edit2 size={16} className="text-neutral-400 group-hover:text-cyan-400" />
+                      </Button>
                     </td>
                   </tr>
                 ))}
@@ -238,17 +240,17 @@ export default function BandMembersManager({ bandId }: BandMembersManagerProps) 
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-          <div className="relative w-full max-w-lg bg-neutral-900 border border-neutral-800 rounded-[2.5rem] p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
+          <Card className="relative w-full max-w-lg p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold">{editingMember?.id ? 'Edit Member' : 'Add Band Member'}</h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-full transition-all">
-                <X size={20} />
+              <button onClick={() => setIsModalOpen(false)} className="p-2 text-neutral-400 hover:text-cyan-400 hover:bg-neutral-800 rounded-full transition-all group">
+                <X size={20} className="group-hover:text-cyan-400" />
               </button>
             </div>
 
             {message && (
               <div className={`p-4 rounded-xl mb-6 flex items-center gap-3 ${message.type === 'success' ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'}`}>
-                {message.type === 'success' ? <Check size={20} /> : <X size={20} />}
+                {message.type === 'success' ? <Check size={20} className="text-green-500" /> : <X size={20} className="text-red-500" />}
                 <p className="font-medium">{message.text}</p>
               </div>
             )}
@@ -257,56 +259,52 @@ export default function BandMembersManager({ bandId }: BandMembersManagerProps) 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-neutral-400">First Name *</label>
-                  <input
+                  <Input
                     type="text"
                     required
                     value={editingMember?.first_name || ''}
                     onChange={(e) => setEditingMember({ ...editingMember, first_name: e.target.value })}
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-neutral-400">Last Name *</label>
-                  <input
+                  <Input
                     type="text"
                     required
                     value={editingMember?.last_name || ''}
                     onChange={(e) => setEditingMember({ ...editingMember, last_name: e.target.value })}
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-neutral-400">Email *</label>
-                <input
+                <Input
                   type="email"
                   required
                   value={editingMember?.email || ''}
                   onChange={(e) => setEditingMember({ ...editingMember, email: e.target.value })}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
                 />
-                <p className="text-xs text-neutral-500 mt-1">We will use this to link to an existing user or create a new one.</p>
+                <p className="text-xs text-neutral-400 mt-1">We will use this to link to an existing user or create a new one.</p>
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-neutral-400">Instrument Description</label>
-                <input
+                <Input
                   type="text"
                   value={editingMember?.instrument_description || ''}
                   onChange={(e) => setEditingMember({ ...editingMember, instrument_description: e.target.value })}
                   placeholder="e.g., Lead Guitar, Vocals"
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
                 />
               </div>
 
               <div className="space-y-2">
                 <label className="text-sm font-medium text-neutral-400">User ID (Read Only)</label>
-                <input
+                <Input
                   type="text"
                   readOnly
                   value={editingMember?.person_id || 'Will be generated/linked on save'}
-                  className="w-full bg-neutral-800/50 border border-neutral-700/50 rounded-xl px-4 py-3 text-neutral-500 outline-none cursor-not-allowed"
+                  className="bg-neutral-800/50 text-neutral-400 cursor-not-allowed"
                 />
               </div>
 
@@ -316,7 +314,7 @@ export default function BandMembersManager({ bandId }: BandMembersManagerProps) 
                   id="isActive"
                   checked={editingMember?.is_active !== false}
                   onChange={(e) => setEditingMember({ ...editingMember, is_active: e.target.checked })}
-                  className="w-5 h-5 rounded border-neutral-600 text-red-600 focus:ring-red-600 bg-neutral-900"
+                  className="w-5 h-5 rounded border-neutral-600 text-red-500 focus:ring-red-600 bg-neutral-900"
                 />
                 <label htmlFor="isActive" className="text-sm font-medium text-white cursor-pointer">
                   Active Member
@@ -324,23 +322,22 @@ export default function BandMembersManager({ bandId }: BandMembersManagerProps) 
               </div>
 
               <div className="pt-6 flex gap-4">
-                <button
+                <Button
                   type="button"
+                  variant="secondary"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white font-bold rounded-xl transition-all"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all shadow-lg shadow-red-600/20 disabled:opacity-50"
                 >
                   {saving ? <Loader2 className="animate-spin" size={20} /> : 'Save Member'}
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
+          </Card>
         </div>
       )}
     </div>

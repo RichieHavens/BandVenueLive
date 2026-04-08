@@ -10,6 +10,10 @@ import {
   Calendar, Clock, Search, Filter, Trash2, Globe, Settings, ShieldCheck, Plus
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { Button } from '../components/ui/Button';
+import { Input } from '../components/ui/Input';
+import { Textarea } from '../components/ui/Textarea';
+import { Card } from '../components/ui/Card';
 
 export function ScraperView() {
   const { profile, user, refreshProfile } = useAuth();
@@ -1370,34 +1374,34 @@ export function ScraperView() {
 
   return (
     <div className="space-y-8">
-      <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-8 space-y-6 mb-6">
-        <h2 className="text-2xl font-bold">Scraper Settings</h2>
+      <Card className="p-8 space-y-6 mb-6">
+        <h2 className="text-2xl font-bold text-white">Scraper Settings</h2>
         <div className="flex gap-4">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={scrapeVenues} onChange={(e) => setScrapeVenues(e.target.checked)} className="accent-red-600" />
+          <label className="flex items-center gap-2 cursor-pointer text-neutral-300 hover:text-white transition-colors">
+            <input type="checkbox" checked={scrapeVenues} onChange={(e) => setScrapeVenues(e.target.checked)} className="accent-cyan-500" />
             Venues
           </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={scrapeBands} onChange={(e) => setScrapeBands(e.target.checked)} className="accent-red-600" />
+          <label className="flex items-center gap-2 cursor-pointer text-neutral-300 hover:text-white transition-colors">
+            <input type="checkbox" checked={scrapeBands} onChange={(e) => setScrapeBands(e.target.checked)} className="accent-cyan-500" />
             Bands
           </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={scrapeEvents} onChange={(e) => setScrapeEvents(e.target.checked)} className="accent-red-600" />
+          <label className="flex items-center gap-2 cursor-pointer text-neutral-300 hover:text-white transition-colors">
+            <input type="checkbox" checked={scrapeEvents} onChange={(e) => setScrapeEvents(e.target.checked)} className="accent-cyan-500" />
             Events
           </label>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Target Venue (Optional)</label>
-            <select value={selectedVenueId} onChange={(e) => handleVenueChange(e.target.value)} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm outline-none">
+            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest mb-2">Target Venue (Optional)</label>
+            <select value={selectedVenueId} onChange={(e) => handleVenueChange(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2 text-sm outline-none text-white focus:border-cyan-500 transition-colors">
               <option value="">Select Venue</option>
               {venues.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-xs font-bold text-neutral-500 uppercase tracking-widest mb-2">Target Band (Optional)</label>
-            <select value={selectedBandId} onChange={(e) => handleBandChange(e.target.value)} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm outline-none">
+            <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest mb-2">Target Band (Optional)</label>
+            <select value={selectedBandId} onChange={(e) => handleBandChange(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2 text-sm outline-none text-white focus:border-cyan-500 transition-colors">
               <option value="">Select Band</option>
               {bands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
@@ -1405,49 +1409,49 @@ export function ScraperView() {
         </div>
 
         <div className="flex gap-4">
-          <button 
+          <Button 
+            variant={inputType === 'url' ? 'primary' : 'secondary'}
             onClick={() => setInputType('url')}
-            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${inputType === 'url' ? 'bg-red-600 text-white' : 'bg-neutral-800 text-neutral-400'}`}
           >
             Website URL
-          </button>
-          <button 
+          </Button>
+          <Button 
+            variant={inputType === 'text' ? 'primary' : 'secondary'}
             onClick={() => setInputType('text')}
-            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${inputType === 'text' ? 'bg-red-600 text-white' : 'bg-neutral-800 text-neutral-400'}`}
           >
             Paste Text / Upload File
-          </button>
+          </Button>
         </div>
 
         {inputType === 'url' ? (
           <div className="flex gap-4">
-            <input 
-              type="text" 
+            <Input 
               placeholder="https://example.com/events"
-              className="flex-1 bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-red-600 transition-all"
+              className="flex-1"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
             />
-            <button 
+            <Button 
               onClick={handleScrape}
               disabled={loading}
-              className="bg-red-600 hover:bg-red-700 disabled:bg-neutral-700 text-white px-8 py-3 rounded-xl font-bold transition-all flex items-center gap-2"
+              className="px-8"
             >
               {loading ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
               {loading ? `Analyzing (${elapsedTime}s)...` : 'Analyze Website'}
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <p className="text-sm text-neutral-500">Paste text content or upload a document (.txt, .csv, .xlsx, .docx)</p>
-              <button 
+              <p className="text-sm text-neutral-400">Paste text content or upload a document (.txt, .csv, .xlsx, .docx)</p>
+              <Button 
+                variant="ghost"
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2 text-red-600 hover:text-red-500 text-sm font-bold"
+                className="text-cyan-400 hover:text-cyan-300"
               >
-                <Upload size={16} />
+                <Upload size={16} className="mr-2" />
                 Upload File
-              </button>
+              </Button>
               <input 
                 type="file" 
                 ref={fileInputRef}
@@ -1456,50 +1460,50 @@ export function ScraperView() {
                 accept=".txt,.csv,.xlsx,.xls,.docx"
               />
             </div>
-            <textarea 
+            <Textarea 
               placeholder="Paste event listings, calendar text, or band info here..."
-              className="w-full h-64 bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-red-600 transition-all resize-none font-mono text-sm"
+              className="w-full h-64"
               value={pastedText}
               onChange={(e) => setPastedText(e.target.value)}
             />
-            <button 
+            <Button 
               onClick={handleScrape}
               disabled={loading || !pastedText}
-              className="w-full bg-red-600 hover:bg-red-700 disabled:bg-neutral-700 text-white px-8 py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+              className="w-full"
             >
               {loading ? <Loader2 className="animate-spin" size={18} /> : <Sparkles size={18} />}
               {loading ? `Analyzing (${elapsedTime}s)...` : 'Analyze Text Content'}
-            </button>
+            </Button>
           </div>
         )}
 
         {status && (
           <div className="mt-4 flex items-center gap-2 text-sm text-neutral-400">
-            {loading && <Loader2 className="animate-spin text-red-600" size={14} />}
+            {loading && <Loader2 className="animate-spin text-cyan-500" size={14} />}
             {status}
           </div>
         )}
-      </div>
+      </Card>
 
       {results && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-2xl font-bold">Analysis Results</h3>
+            <h3 className="text-2xl font-bold text-white">Analysis Results</h3>
             <div className="flex gap-4">
-              <button 
+              <Button 
+                variant="ghost"
                 onClick={() => setShowRawResponse(!showRawResponse)}
-                className="text-neutral-500 hover:text-white text-xs font-bold uppercase tracking-widest"
               >
                 {showRawResponse ? 'Hide Raw AI' : 'Show Raw AI'}
-              </button>
-              <button 
+              </Button>
+              <Button 
                 onClick={handleImport}
                 disabled={loading}
-                className="bg-green-600 hover:bg-green-700 disabled:bg-neutral-700 text-white px-8 py-3 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg shadow-green-900/20"
+                className="bg-green-600 hover:bg-green-700"
               >
                 {loading ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle size={18} />}
                 Import to Database
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -1510,26 +1514,28 @@ export function ScraperView() {
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6">
+            <Card>
               <div className="flex items-center gap-3 mb-4">
-                <MapPin className="text-red-600" size={20} />
-                <h4 className="font-bold">Venues ({results.venues.length})</h4>
+                <MapPin className="text-cyan-500" size={20} />
+                <h4 className="font-bold text-white">Venues ({results.venues.length})</h4>
               </div>
               <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
                 {results.venues.map((v: any, i: number) => (
-                  <div key={i} className="p-3 bg-neutral-800 rounded-xl text-sm flex justify-between items-start group">
+                  <div key={i} className="p-3 bg-neutral-950 rounded-xl text-sm flex justify-between items-start group border border-neutral-800">
                     <div>
-                      <p className="font-bold">{v.name}</p>
+                      <p className="font-bold text-white">{v.name}</p>
                       {v.match ? (
                         <p className="text-[10px] text-green-500 font-bold flex items-center gap-1">
                           <ShieldCheck size={10} /> Matches: {v.match}
                         </p>
                       ) : (
-                        <p className="text-xs text-neutral-500 truncate max-w-[150px]">{v.address}</p>
+                        <p className="text-xs text-neutral-400 truncate max-w-[150px]">{v.address}</p>
                       )}
                     </div>
                     <div className="flex items-center gap-2 transition-all">
-                      <button 
+                      <Button 
+                        variant="secondary"
+                        size="sm"
                         onClick={() => setEditingRecord({ 
                           type: 'venues', 
                           index: i, 
@@ -1540,109 +1546,107 @@ export function ScraperView() {
                             email: v.email || '' 
                           } 
                         })}
-                        className="p-1.5 bg-red-600/10 hover:bg-red-600/20 text-red-600 rounded-lg transition-colors flex items-center gap-1"
                         title={v.match ? "Compare with existing record" : "Edit record"}
                       >
                         <Settings size={14} />
-                        <span className="text-[10px] font-bold uppercase">{v.match ? 'Compare' : 'Edit'}</span>
-                      </button>
-                      <button 
+                      </Button>
+                        <Button 
+                        variant="danger"
+                        size="sm"
                         onClick={() => handleRemoveRecord('venues', i)}
-                        className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition-colors flex items-center gap-1"
                         title="Delete from list"
                       >
                         <Trash2 size={14} />
-                        <span className="text-[10px] font-bold uppercase">Delete</span>
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
 
-            <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6">
+            <Card>
               <div className="flex items-center gap-3 mb-4">
-                <Music className="text-red-600" size={20} />
-                <h4 className="font-bold">Bands ({results.bands.length})</h4>
+                <Music className="text-cyan-500" size={20} />
+                <h4 className="font-bold text-white">Bands ({results.bands.length})</h4>
               </div>
               <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
                 {results.bands.map((b: any, i: number) => (
-                  <div key={i} className="p-3 bg-neutral-800 rounded-xl text-sm flex justify-between items-start group">
+                  <div key={i} className="p-3 bg-neutral-950 rounded-xl text-sm flex justify-between items-start group border border-neutral-800">
                     <div>
-                      <p className="font-bold">{b.name}</p>
+                      <p className="font-bold text-white">{b.name}</p>
                       {b.match ? (
                         <p className="text-[10px] text-green-500 font-bold flex items-center gap-1">
                           <ShieldCheck size={10} /> Matches: {b.match}
                         </p>
                       ) : (
-                        <p className="text-xs text-neutral-500 truncate max-w-[150px]">{b.genres?.join(', ')}</p>
+                        <p className="text-xs text-neutral-400 truncate max-w-[150px]">{b.genres?.join(', ')}</p>
                       )}
                     </div>
                     <div className="flex items-center gap-2 transition-all">
-                      <button 
+                      <Button 
+                        variant="secondary"
+                        size="sm"
                         onClick={() => setEditingRecord({ type: 'bands', index: i, data: b })}
-                        className="p-1.5 bg-red-600/10 hover:bg-red-600/20 text-red-600 rounded-lg transition-colors flex items-center gap-1"
                         title={b.match ? "Compare with existing record" : "Edit record"}
                       >
                         <Settings size={14} />
-                        <span className="text-[10px] font-bold uppercase">{b.match ? 'Compare' : 'Edit'}</span>
-                      </button>
-                      <button 
+                      </Button>
+                      <Button 
+                        variant="danger"
+                        size="sm"
                         onClick={() => handleRemoveRecord('bands', i)}
-                        className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition-colors flex items-center gap-1"
                         title="Delete from list"
                       >
                         <Trash2 size={14} />
-                        <span className="text-[10px] font-bold uppercase">Delete</span>
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
 
-            <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-6">
+            <Card>
               <div className="flex items-center gap-3 mb-4">
-                <Calendar className="text-red-600" size={20} />
-                <h4 className="font-bold">Events ({results.events.length})</h4>
+                <Calendar className="text-cyan-500" size={20} />
+                <h4 className="font-bold text-white">Events ({results.events.length})</h4>
               </div>
               <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
                 {results.events.map((e: any, i: number) => (
-                  <div key={i} className="p-3 bg-neutral-800 rounded-xl text-sm flex justify-between items-start group">
+                  <div key={i} className="p-3 bg-neutral-950 rounded-xl text-sm flex justify-between items-start group border border-neutral-800">
                     <div>
-                      <p className="font-bold">{e.title}</p>
-                      <p className="text-xs text-neutral-500 truncate max-w-[150px]">
+                      <p className="font-bold text-white">{e.title}</p>
+                      <p className="text-xs text-neutral-400 truncate max-w-[150px]">
                         {e.venue_name} • {e.start_time ? formatDate(e.start_time) : 'No Date'}
                       </p>
                     </div>
                     <div className="flex items-center gap-2 transition-all">
-                      <button 
+                      <Button 
+                        variant="secondary"
+                        size="sm"
                         onClick={() => setEditingRecord({ type: 'events', index: i, data: e })}
-                        className="p-1.5 bg-red-600/10 hover:bg-red-600/20 text-red-600 rounded-lg transition-colors flex items-center gap-1"
                         title="Edit record"
                       >
                         <Settings size={14} />
-                        <span className="text-[10px] font-bold uppercase">Edit</span>
-                      </button>
-                      <button 
+                      </Button>
+                      <Button 
+                        variant="danger"
+                        size="sm"
                         onClick={() => handleRemoveRecord('events', i)}
-                        className="p-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-lg transition-colors flex items-center gap-1"
                         title="Delete from list"
                       >
                         <Trash2 size={14} />
-                        <span className="text-[10px] font-bold uppercase">Delete</span>
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
           </div>
         </div>
       )}
 
       {importSummary && (
-        <div className="bg-green-500/10 border border-green-500/20 rounded-3xl p-8">
+        <Card className="bg-green-950/20 border-green-500/20 p-8">
           <div className="flex items-center gap-4 mb-6">
             <div className="bg-green-500 p-2 rounded-full">
               <CheckCircle className="text-white" size={24} />
@@ -1651,28 +1655,28 @@ export function ScraperView() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8">
             <div>
-              <p className="text-3xl font-black">{importSummary.venues}</p>
-              <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">New Venues</p>
+              <p className="text-3xl font-black text-white">{importSummary.venues}</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-neutral-400">New Venues</p>
             </div>
             <div>
-              <p className="text-3xl font-black">{importSummary.bands}</p>
-              <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">New Bands</p>
+              <p className="text-3xl font-black text-white">{importSummary.bands}</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-neutral-400">New Bands</p>
             </div>
             <div>
-              <p className="text-3xl font-black">{importSummary.events}</p>
-              <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">New Events</p>
+              <p className="text-3xl font-black text-white">{importSummary.events}</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-neutral-400">New Events</p>
             </div>
             <div>
-              <p className="text-3xl font-black">{importSummary.genres}</p>
-              <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">New Genres</p>
+              <p className="text-3xl font-black text-white">{importSummary.genres}</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-neutral-400">New Genres</p>
             </div>
             <div>
               <p className="text-3xl font-black text-blue-500">{importSummary.duplicatesSkipped}</p>
-              <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">Duplicates</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-neutral-400">Duplicates</p>
             </div>
             <div>
               <p className="text-3xl font-black text-purple-500">{importSummary.fuzzyMatches}</p>
-              <p className="text-xs font-bold uppercase tracking-widest text-neutral-500">Matched</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-neutral-400">Matched</p>
             </div>
           </div>
 
@@ -1681,12 +1685,12 @@ export function ScraperView() {
               <h4 className="font-bold text-sm uppercase tracking-widest text-neutral-400">Detailed Report</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div className="space-y-2">
-                  <p className="text-xs font-bold text-neutral-500 uppercase mb-2">Venues & Bands</p>
+                  <p className="text-xs font-bold text-neutral-400 uppercase mb-2">Venues & Bands</p>
                   {[...importDetails.venues.map(v => ({ ...v, type: 'venue' as const })), ...importDetails.bands.map(b => ({ ...b, type: 'band' as const }))].map((item, i) => (
                     <div key={i} className="flex items-center justify-between text-xs p-2 bg-black/20 rounded-lg group">
                       <div className="flex flex-col">
-                        <span className="font-medium">{item.name}</span>
-                        <span className="text-[10px] text-neutral-500 uppercase tracking-widest">{item.type}</span>
+                        <span className="font-medium text-white">{item.name}</span>
+                        <span className="text-[10px] text-neutral-400 uppercase tracking-widest">{item.type}</span>
                       </div>
                       <div className="flex items-center gap-3">
                         <span className={`px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter ${
@@ -1696,26 +1700,28 @@ export function ScraperView() {
                           {item.status === 'matched' ? `Matched: ${item.match}` : item.status}
                         </span>
                         {item.status === 'matched' && (
-                          <button 
+                          <Button 
+                            variant="danger"
+                            size="sm"
                             onClick={() => handleOverrideMatch(item, item.type)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-[10px] font-bold uppercase tracking-widest flex items-center gap-1"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
                           >
-                            <Plus size={10} />
+                            <Plus size={10} className="mr-1" />
                             Add as New
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
                 <div className="space-y-2">
-                  <p className="text-xs font-bold text-neutral-500 uppercase mb-2">Events</p>
+                  <p className="text-xs font-bold text-neutral-400 uppercase mb-2">Events</p>
                   {importDetails.events.map((item, i) => (
                     <div key={i} className="flex items-center justify-between text-xs p-2 bg-black/20 rounded-lg">
-                      <span className="font-medium truncate max-w-[150px]">{item.title}</span>
+                      <span className="font-medium text-white truncate max-w-[150px]">{item.title}</span>
                       <span className={`px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter ${
                         item.status === 'new' ? 'bg-green-500/20 text-green-500' : 
-                        item.status === 'skipped' ? 'bg-neutral-500/20 text-neutral-500' : 'bg-red-500/20 text-red-500'
+                        item.status === 'skipped' ? 'bg-neutral-500/20 text-neutral-400' : 'bg-red-500/20 text-red-500'
                       }`}>
                         {item.status === 'skipped' ? `Skipped: ${item.reason}` : item.status}
                       </span>
@@ -1725,7 +1731,7 @@ export function ScraperView() {
               </div>
             </div>
           )}
-        </div>
+        </Card>
       )}
 
       {/* Compare/Edit Record Modal */}
@@ -1743,240 +1749,58 @@ export function ScraperView() {
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-4xl bg-neutral-900 border border-neutral-800 rounded-[2.5rem] p-8 shadow-2xl max-h-[90vh] flex flex-col"
+              className="relative w-full max-w-4xl bg-neutral-950 border border-neutral-800 rounded-[2.5rem] p-8 shadow-2xl max-h-[90vh] flex flex-col"
             >
               <div className="flex items-center justify-between mb-8">
                 <div>
-                  <h3 className="text-2xl font-bold capitalize">
+                  <h3 className="text-2xl font-bold text-white capitalize">
                     {matchedRecord ? 'Compare' : 'Edit'} {editingRecord.type.slice(0, -1)}
                   </h3>
                   {matchedRecord && (
-                    <p className="text-sm text-neutral-500 mt-1">
+                    <p className="text-sm text-neutral-400 mt-1">
                       A similar record was found in the database. Review both before adding.
                     </p>
                   )}
                 </div>
-                <button onClick={() => setEditingRecord(null)} className="p-2 hover:bg-neutral-800 rounded-full transition-colors">
+                <Button variant="ghost" onClick={() => setEditingRecord(null)}>
                   <X size={24} />
-                </button>
+                </Button>
               </div>
 
               <div className="flex-1 overflow-y-auto pr-2 space-y-12">
                 {/* New Record Section */}
                 <section>
                   <div className="flex items-center justify-between mb-6">
-                    <h4 className="text-lg font-bold text-red-600 flex items-center gap-2">
-                      <div className="w-2 h-2 bg-red-600 rounded-full animate-pulse" />
+                    <h4 className="text-lg font-bold text-cyan-500 flex items-center gap-2">
+                      <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse" />
                       New Record (Scraped Data)
                     </h4>
                     <div className="flex gap-3">
-                      <button
+                      <Button
+                        variant="secondary"
                         onClick={() => {
                           handleRemoveRecord(editingRecord.type, editingRecord.index);
                           setEditingRecord(null);
                         }}
-                        className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-neutral-400 font-bold rounded-xl transition-all text-xs uppercase"
                       >
                         Cancel
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         onClick={() => handleImportSingle(editingRecord.type, editingRecord.index, editingRecord.data)}
-                        className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl transition-all text-xs uppercase flex items-center gap-2"
+                        className="bg-cyan-600 hover:bg-cyan-700"
                       >
-                        <Plus size={14} />
+                        <Plus size={14} className="mr-2" />
                         Add {editingRecord.type.slice(0, -1)}
-                      </button>
+                      </Button>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-neutral-800/30 p-6 rounded-3xl border border-neutral-800">
-                    {Object.entries(editingRecord.data).map(([key, value]) => {
-                      if (key === 'match' || key === 'matchId' || key === 'match_id') return null;
-                      
-                      // Special handling for address in venues to split into components
-                      if (editingRecord.type === 'venues' && key === 'address') {
-                        const addr = value as string || '';
-                        const parts = addr.split(', ');
-                        const street = parts[0] || '';
-                        const city = parts[1] || '';
-                        const stateZip = parts[2] || '';
-                        const [state, zip] = stateZip.split(' ') || ['', ''];
-
-                        return (
-                          <React.Fragment key={key}>
-                            <div className="md:col-span-2">
-                              <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Street Address</label>
-                              <input 
-                                type="text"
-                                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-red-600 transition-all"
-                                value={street}
-                                onChange={(e) => {
-                                  const newAddr = `${e.target.value}, ${city}, ${state} ${zip}`;
-                                  setEditingRecord({ ...editingRecord, data: { ...editingRecord.data, address: newAddr } });
-                                }}
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">City</label>
-                              <input 
-                                type="text"
-                                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-red-600 transition-all"
-                                value={city}
-                                onChange={(e) => {
-                                  const newAddr = `${street}, ${e.target.value}, ${state} ${zip}`;
-                                  setEditingRecord({ ...editingRecord, data: { ...editingRecord.data, address: newAddr } });
-                                }}
-                              />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <div>
-                                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">State</label>
-                                <input 
-                                  type="text"
-                                  className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-red-600 transition-all"
-                                  value={state}
-                                  onChange={(e) => {
-                                    const newAddr = `${street}, ${city}, ${e.target.value} ${zip}`;
-                                    setEditingRecord({ ...editingRecord, data: { ...editingRecord.data, address: newAddr } });
-                                  }}
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Zip Code</label>
-                                <input 
-                                  type="text"
-                                  className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-red-600 transition-all"
-                                  value={zip}
-                                  onChange={(e) => {
-                                    const newAddr = `${street}, ${city}, ${state} ${e.target.value}`;
-                                    setEditingRecord({ ...editingRecord, data: { ...editingRecord.data, address: newAddr } });
-                                  }}
-                                />
-                              </div>
-                            </div>
-                          </React.Fragment>
-                        );
-                      }
-
-                      if (editingRecord.type === 'events' && key === 'start_time') {
-                        let dateValue = '';
-                        let timeValue = '20:00';
+                  <Card className="bg-neutral-900 border-neutral-800 p-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {Object.entries(editingRecord.data).map(([key, value]) => {
+                        if (key === 'match' || key === 'matchId' || key === 'match_id') return null;
                         
-                        try {
-                          if (value) {
-                            const d = new Date(value as string);
-                            if (!isNaN(d.getTime())) {
-                              // Use local time components for the inputs
-                              const year = d.getFullYear();
-                              const month = (d.getMonth() + 1).toString().padStart(2, '0');
-                              const day = d.getDate().toString().padStart(2, '0');
-                              dateValue = `${year}-${month}-${day}`;
-                              
-                              const hours = d.getHours().toString().padStart(2, '0');
-                              const minutes = d.getMinutes().toString().padStart(2, '0');
-                              timeValue = `${hours}:${minutes}`;
-                            }
-                          }
-                        } catch (e) {
-                          console.error('Error parsing start_time:', e);
-                        }
-
-                        return (
-                          <React.Fragment key={key}>
-                            <div>
-                              <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Date</label>
-                              <input 
-                                type="date"
-                                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-red-600 transition-all"
-                                value={dateValue}
-                                onChange={(e) => {
-                                  const newDate = e.target.value;
-                                  try {
-                                    // Combine with current timeValue in local time
-                                    const combined = new Date(`${newDate}T${timeValue || '20:00'}`).toISOString();
-                                    const newData = { ...editingRecord.data, start_time: combined };
-                                    setEditingRecord({ ...editingRecord, data: newData });
-                                  } catch (err) {
-                                    const newData = { ...editingRecord.data, start_time: newDate };
-                                    setEditingRecord({ ...editingRecord, data: newData });
-                                  }
-                                }}
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Time</label>
-                              <input 
-                                type="time"
-                                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-red-600 transition-all"
-                                value={timeValue}
-                                onChange={(e) => {
-                                  const newTime = e.target.value;
-                                  try {
-                                    // Combine with current dateValue in local time
-                                    const combined = new Date(`${dateValue || new Date().toISOString().split('T')[0]}T${newTime}`).toISOString();
-                                    const newData = { ...editingRecord.data, start_time: combined };
-                                    setEditingRecord({ ...editingRecord, data: newData });
-                                  } catch (err) {
-                                    // Fallback if date is invalid
-                                    const newData = { ...editingRecord.data, start_time: `${dateValue} ${newTime}` };
-                                    setEditingRecord({ ...editingRecord, data: newData });
-                                  }
-                                }}
-                              />
-                            </div>
-                          </React.Fragment>
-                        );
-                      }
-
-                      // Hide redundant date field in events if it exists
-                      if (editingRecord.type === 'events' && key === 'date') return null;
-                      
-                      if (key === 'genres' || key === 'band_names' || key === 'images') {
-                        return (
-                          <div key={key}>
-                            <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">{key.replace('_', ' ')}</label>
-                            <input 
-                              type="text"
-                              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-red-600 transition-all"
-                              value={Array.isArray(value) ? value.join(', ') : ''}
-                              onChange={(e) => {
-                                const newData = { ...editingRecord.data, [key]: e.target.value.split(',').map(s => s.trim()) };
-                                setEditingRecord({ ...editingRecord, data: newData });
-                              }}
-                            />
-                          </div>
-                        );
-                      }
-                      return (
-                        <div key={key}>
-                          <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">{key.replace('_', ' ')}</label>
-                          <input 
-                            type="text"
-                            className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-red-600 transition-all"
-                            value={String(value || '')}
-                            onChange={(e) => {
-                              const newData = { ...editingRecord.data, [key]: e.target.value };
-                              setEditingRecord({ ...editingRecord, data: newData });
-                            }}
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </section>
-
-                {/* Existing Record Section */}
-                {matchedRecord && (
-                  <section>
-                    <h4 className="text-lg font-bold text-green-500 flex items-center gap-2 mb-6">
-                      <ShieldCheck size={20} />
-                      Existing Record (Database)
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-green-500/5 p-6 rounded-3xl border border-green-500/20">
-                      {Object.entries(matchedRecord).map(([key, value]) => {
-                        if (['id', 'created_at', 'manager_id', 'updated_at'].includes(key)) return null;
-                        
-                        // Special handling for address in venues for comparison
+                        // Special handling for address in venues to split into components
                         if (editingRecord.type === 'venues' && key === 'address') {
                           const addr = value as string || '';
                           const parts = addr.split(', ');
@@ -1988,78 +1812,239 @@ export function ScraperView() {
                           return (
                             <React.Fragment key={key}>
                               <div className="md:col-span-2">
-                                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Existing Street Address</label>
-                                <div className="w-full bg-neutral-900/50 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-neutral-400 italic">
-                                  {street}
-                                </div>
+                                <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">Street Address</label>
+                                <Input 
+                                  value={street}
+                                  onChange={(e) => {
+                                    const newAddr = `${e.target.value}, ${city}, ${state} ${zip}`;
+                                    setEditingRecord({ ...editingRecord, data: { ...editingRecord.data, address: newAddr } });
+                                  }}
+                                />
                               </div>
                               <div>
-                                <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Existing City</label>
-                                <div className="w-full bg-neutral-900/50 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-neutral-400 italic">
-                                  {city}
-                                </div>
+                                <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">City</label>
+                                <Input 
+                                  value={city}
+                                  onChange={(e) => {
+                                    const newAddr = `${street}, ${e.target.value}, ${state} ${zip}`;
+                                    setEditingRecord({ ...editingRecord, data: { ...editingRecord.data, address: newAddr } });
+                                  }}
+                                />
                               </div>
                               <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                  <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Existing State</label>
-                                  <div className="w-full bg-neutral-900/50 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-neutral-400 italic">
-                                    {state}
-                                  </div>
+                                  <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">State</label>
+                                  <Input 
+                                    value={state}
+                                    onChange={(e) => {
+                                      const newAddr = `${street}, ${city}, ${e.target.value} ${zip}`;
+                                      setEditingRecord({ ...editingRecord, data: { ...editingRecord.data, address: newAddr } });
+                                    }}
+                                  />
                                 </div>
                                 <div>
-                                  <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Existing Zip Code</label>
-                                  <div className="w-full bg-neutral-900/50 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-neutral-400 italic">
-                                    {zip}
-                                  </div>
+                                  <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">Zip Code</label>
+                                  <Input 
+                                    value={zip}
+                                    onChange={(e) => {
+                                      const newAddr = `${street}, ${city}, ${state} ${e.target.value}`;
+                                      setEditingRecord({ ...editingRecord, data: { ...editingRecord.data, address: newAddr } });
+                                    }}
+                                  />
                                 </div>
                               </div>
                             </React.Fragment>
                           );
                         }
 
-                        // Special handling for start_time in events for comparison
-
                         if (editingRecord.type === 'events' && key === 'start_time') {
+                          let dateValue = '';
+                          let timeValue = '20:00';
+                          
                           try {
-                            const d = new Date(value as string);
-                            if (!isNaN(d.getTime())) {
-                              const dateStr = formatDate(d);
-                              const timeStr = formatTime(d);
-                              return (
-                                <React.Fragment key={key}>
-                                  <div>
-                                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Existing Date</label>
-                                    <div className="w-full bg-neutral-900/50 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-neutral-400 italic">
-                                      {dateStr}
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">Existing Time</label>
-                                    <div className="w-full bg-neutral-900/50 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-neutral-400 italic">
-                                      {timeStr}
-                                    </div>
-                                  </div>
-                                </React.Fragment>
-                              );
+                            if (value) {
+                              const d = new Date(value as string);
+                              if (!isNaN(d.getTime())) {
+                                const year = d.getFullYear();
+                                const month = (d.getMonth() + 1).toString().padStart(2, '0');
+                                const day = d.getDate().toString().padStart(2, '0');
+                                dateValue = `${year}-${month}-${day}`;
+                                
+                                const hours = d.getHours().toString().padStart(2, '0');
+                                const minutes = d.getMinutes().toString().padStart(2, '0');
+                                timeValue = `${hours}:${minutes}`;
+                              }
                             }
                           } catch (e) {
-                            // Fallback to default rendering
+                            console.error('Error parsing start_time:', e);
                           }
+
+                          return (
+                            <React.Fragment key={key}>
+                              <div>
+                                <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">Date</label>
+                                <Input 
+                                  type="date"
+                                  value={dateValue}
+                                  onChange={(e) => {
+                                    const newDate = e.target.value;
+                                    try {
+                                      const combined = new Date(`${newDate}T${timeValue || '20:00'}`).toISOString();
+                                      const newData = { ...editingRecord.data, start_time: combined };
+                                      setEditingRecord({ ...editingRecord, data: newData });
+                                    } catch (err) {
+                                      const newData = { ...editingRecord.data, start_time: newDate };
+                                      setEditingRecord({ ...editingRecord, data: newData });
+                                    }
+                                  }}
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">Time</label>
+                                <Input 
+                                  type="time"
+                                  value={timeValue}
+                                  onChange={(e) => {
+                                    const newTime = e.target.value;
+                                    try {
+                                      const combined = new Date(`${dateValue || new Date().toISOString().split('T')[0]}T${newTime}`).toISOString();
+                                      const newData = { ...editingRecord.data, start_time: combined };
+                                      setEditingRecord({ ...editingRecord, data: newData });
+                                    } catch (err) {
+                                      const newData = { ...editingRecord.data, start_time: `${dateValue} ${newTime}` };
+                                      setEditingRecord({ ...editingRecord, data: newData });
+                                    }
+                                  }}
+                                />
+                              </div>
+                            </React.Fragment>
+                          );
                         }
 
-                        // Hide redundant date field in events if it exists
                         if (editingRecord.type === 'events' && key === 'date') return null;
-
+                        
+                        if (key === 'genres' || key === 'band_names' || key === 'images') {
+                          return (
+                            <div key={key}>
+                              <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">{key.replace('_', ' ')}</label>
+                              <Input 
+                                value={Array.isArray(value) ? value.join(', ') : ''}
+                                onChange={(e) => {
+                                  const newData = { ...editingRecord.data, [key]: e.target.value.split(',').map(s => s.trim()) };
+                                  setEditingRecord({ ...editingRecord, data: newData });
+                                }}
+                              />
+                            </div>
+                          );
+                        }
                         return (
                           <div key={key}>
-                            <label className="block text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-2">{key.replace('_', ' ')}</label>
-                            <div className="w-full bg-neutral-900/50 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-neutral-400 italic">
-                              {Array.isArray(value) ? value.join(', ') : String(value || 'None')}
-                            </div>
+                            <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">{key.replace('_', ' ')}</label>
+                            <Input 
+                              value={String(value || '')}
+                              onChange={(e) => {
+                                const newData = { ...editingRecord.data, [key]: e.target.value };
+                                setEditingRecord({ ...editingRecord, data: newData });
+                              }}
+                            />
                           </div>
                         );
                       })}
                     </div>
+                  </Card>
+                </section>
+
+                {/* Existing Record Section */}
+                {matchedRecord && (
+                  <section>
+                    <h4 className="text-lg font-bold text-green-500 flex items-center gap-2 mb-6">
+                      <ShieldCheck size={20} />
+                      Existing Record (Database)
+                    </h4>
+                    <Card className="bg-green-950/10 border-green-500/20 p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {Object.entries(matchedRecord).map(([key, value]) => {
+                          if (['id', 'created_at', 'manager_id', 'updated_at'].includes(key)) return null;
+                          
+                          if (editingRecord.type === 'venues' && key === 'address') {
+                            const addr = value as string || '';
+                            const parts = addr.split(', ');
+                            const street = parts[0] || '';
+                            const city = parts[1] || '';
+                            const stateZip = parts[2] || '';
+                            const [state, zip] = stateZip.split(' ') || ['', ''];
+
+                            return (
+                              <React.Fragment key={key}>
+                                <div className="md:col-span-2">
+                                  <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">Existing Street Address</label>
+                                  <div className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-neutral-400 italic">
+                                    {street}
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">Existing City</label>
+                                  <div className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-neutral-400 italic">
+                                    {city}
+                                  </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">Existing State</label>
+                                    <div className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-neutral-400 italic">
+                                      {state}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">Existing Zip Code</label>
+                                    <div className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-neutral-400 italic">
+                                      {zip}
+                                    </div>
+                                  </div>
+                                </div>
+                              </React.Fragment>
+                            );
+                          }
+
+                          if (editingRecord.type === 'events' && key === 'start_time') {
+                            try {
+                              const d = new Date(value as string);
+                              if (!isNaN(d.getTime())) {
+                                const dateStr = formatDate(d);
+                                const timeStr = formatTime(d);
+                                return (
+                                  <React.Fragment key={key}>
+                                    <div>
+                                      <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">Existing Date</label>
+                                      <div className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-neutral-400 italic">
+                                        {dateStr}
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">Existing Time</label>
+                                      <div className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-neutral-400 italic">
+                                        {timeStr}
+                                      </div>
+                                    </div>
+                                  </React.Fragment>
+                                );
+                              }
+                            } catch (e) {}
+                          }
+
+                          if (editingRecord.type === 'events' && key === 'date') return null;
+
+                          return (
+                            <div key={key}>
+                              <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">{key.replace('_', ' ')}</label>
+                              <div className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-neutral-400 italic">
+                                {Array.isArray(value) ? value.join(', ') : String(value || 'None')}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </Card>
                   </section>
                 )}
               </div>

@@ -24,7 +24,7 @@ export function MusiciansView() {
     <div className="space-y-8">
       <h2 className="text-4xl font-bold tracking-tight">Musicians</h2>
       {loading ? (
-        <div className="flex justify-center py-20"><Loader2 className="animate-spin text-red-600" size={48} /></div>
+        <div className="flex justify-center py-20"><Loader2 className="animate-spin text-red-500" size={48} /></div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {musicians.map((m) => (
@@ -39,7 +39,7 @@ export function MusiciansView() {
               </div>
               <div>
                 <h4 className="font-bold">{m.first_name} {m.last_name}</h4>
-                <p className="text-neutral-500 text-xs">
+                <p className="text-neutral-400 text-xs">
                   {m.musicians?.[0]?.instruments?.join(' • ') || 'Musician'}
                   {m.musicians?.[0]?.looking_for_bands && ' • Looking for Band'}
                 </p>

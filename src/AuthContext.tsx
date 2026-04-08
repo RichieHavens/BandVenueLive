@@ -1,12 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
-import { Profile, UserRole } from './types';
+import { Profile, UserRole, RoleMaster } from './types';
 
 interface AuthContextType {
   user: User | null;
   profile: Profile | null;
   activeRole: UserRole | null;
+  roleData: RoleMaster | null;
   loading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -20,9 +21,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [activeRole, setActiveRoleState] = useState<UserRole | null>(null);
+  const [roleData, setRoleData] = useState<RoleMaster | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Fetch role metadata when activeRole changes
+  useEffect(() => {
+    if (!activeRole) {
+      setRoleData(null);
+      return;
+    }
+
+    const fetchRoleData = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('roles_master')
+          .select('*')
+          .eq('id', activeRole)
+          .maybeSingle();
+
+        if (error) throw error;
+        setRoleData(data ? (data as RoleMaster) : null);
+      } catch (error) {
+        console.error('Error fetching role metadata:', error);
+        setRoleData(null);
+      }
+    };
+
+    fetchRoleData();
+  }, [activeRole]);
+
   const setActiveRole = (role: UserRole) => {
+    if (profile && !profile.roles.includes(role)) {
+      console.warn(`User does not have the role: ${role}`);
+      return;
+    }
     setActiveRoleState(role);
     // Optionally persist this to local storage for the session
     localStorage.setItem('active_role', role);
@@ -60,6 +92,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         fetchProfile(session.user.id, session.user.email);
       } else {
         setProfile(null);
+        setActiveRoleState(null);
+        setRoleData(null);
         setLoading(false);
       }
     });
@@ -68,6 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   async function fetchProfile(userId: string, userEmail?: string) {
+    setLoading(true);
     try {
       // 1. Get the profile
       let { data: profileData, error: profileError } = await supabase
@@ -116,7 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             first_name: personData?.first_name || '',
             last_name: personData?.last_name || '',
             phone: personData?.phone || '',
-            roles: personData?.roles || ['event_attendee']
+            roles: personData?.roles || ['guest']
           };
 
           const { data: newData, error: insertError } = await supabase
@@ -168,9 +203,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           needsUpdate = true;
         }
         
-        // Default to event_attendee if no roles
+        // Default to guest if no roles
         if (updatedRoles.length === 0) {
-          updatedRoles.push('event_attendee');
+          updatedRoles.push('guest');
           needsUpdate = true;
         }
 
@@ -190,12 +225,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Set active role
         const savedRole = localStorage.getItem('active_role') as UserRole;
+        
+        // Define role priority (higher index = higher priority)
+        const rolePriority: UserRole[] = ['guest', 'musician', 'band_manager', 'venue_manager', 'syndication_manager', 'admin'];
+        
         if (savedRole && mergedProfile.roles.includes(savedRole)) {
           setActiveRoleState(savedRole);
         } else if (mergedProfile.default_role && mergedProfile.roles.includes(mergedProfile.default_role)) {
           setActiveRoleState(mergedProfile.default_role);
         } else if (mergedProfile.roles.length > 0) {
-          setActiveRoleState(mergedProfile.roles[0]);
+          // Sort roles by priority and pick the highest
+          const sortedRoles = [...mergedProfile.roles].sort((a, b) => {
+            return rolePriority.indexOf(b) - rolePriority.indexOf(a);
+          });
+          setActiveRoleState(sortedRoles[0]);
         }
 
         console.log('Profile successfully set in state:', mergedProfile);
@@ -216,6 +259,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
+    localStorage.removeItem('bandvenue_active_tab');
     await supabase.auth.signOut();
   };
 
@@ -224,6 +268,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user, 
       profile, 
       activeRole, 
+      roleData,
       loading, 
       signOut, 
       refreshProfile, 

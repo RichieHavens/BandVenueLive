@@ -1,9 +1,16 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { UserRole } from "../types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
+
+export const getPriorityDefaultRole = (roles: UserRole[]): UserRole => {
+  if (roles.includes('venue_manager')) return 'venue_manager';
+  if (roles.includes('band_manager')) return 'band_manager';
+  return 'guest';
+};
 
 export const isSimilar = (s1: string, s2: string) => {
   if (!s1 || !s2) return false;

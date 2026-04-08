@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../AuthContext';
-import { Venue, Event } from '../types';
+import { Venue, AppEvent } from '../types';
 import { Save, Image as ImageIcon, Loader2, Plus, Trash2, MapPin, Calendar, Clock, Eye } from 'lucide-react';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Textarea } from './ui/Textarea';
+import { Card } from './ui/Card';
 import { US_STATES, CA_PROVINCES, AddressParts, formatAddress, parseAddress, validateZipForState } from '../lib/geo';
 import { formatDate, formatTimeString } from '../lib/utils';
 import ImageUpload from './ImageUpload';
-import StockImagePicker from './StockImagePicker';
 import { formatPhoneNumber } from '../lib/phoneFormatter';
 import ProfilePreviewModal from './ProfilePreviewModal';
 import { handleSupabaseError, OperationType } from '../lib/error-handler';
@@ -41,14 +44,12 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
     images: []
   });
   const [initialVenue, setInitialVenue] = useState<Partial<Venue> | null>(null);
-  const [futureEvents, setFutureEvents] = useState<Event[]>([]);
+  const [futureEvents, setFutureEvents] = useState<AppEvent[]>([]);
   const [addressParts, setAddressParts] = useState<AddressParts>(parseAddress(''));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const [isStockPickerOpen, setIsStockPickerOpen] = useState(false);
-  const [stockPickerConfig, setStockPickerConfig] = useState<{ type: 'hero' | 'logo', category: 'venue' | 'band' | 'generic' }>({ type: 'hero', category: 'venue' });
 
   // Track if form is dirty
   useEffect(() => {
@@ -88,13 +89,6 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
 
   async function fetchVenues() {
     try {
-      // 1. Get the person record for this user if it exists
-      const { data: personData } = await supabase
-        .from('people')
-        .select('id')
-        .eq('user_id', user?.id)
-        .single();
-
       if (venueId === 'new') {
         const defaultVenue = {
           name: '',
@@ -128,14 +122,11 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
       
       if (venueId) {
         query = query.eq('id', venueId);
-      } else if (personData) {
-        // If they have a person record, check both manager_id and person_id
-        query = query.or(`manager_id.eq.${user?.id},person_id.eq.${personData.id}`);
       } else {
         query = query.eq('manager_id', user?.id);
       }
       
-      const { data, error } = await query;
+      const { data, error } = await query.order('name');
 
       if (error) throw error;
       
@@ -322,13 +313,6 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
         }
       });
 
-      // 1. Get the person record for this user if it exists
-      const { data: personData } = await supabase
-        .from('people')
-        .select('id')
-        .eq('user_id', user?.id)
-        .maybeSingle();
-
       const { error, data } = await supabase
         .from('venues')
         .upsert({
@@ -338,7 +322,6 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
           id: selectedVenueId || undefined,
           website: finalWebsite,
           manager_id: venue.manager_id || user?.id, // Preserve existing manager or set to current
-          person_id: venue.person_id || personData?.id, // Link to person record if available
           updated_at: new Date().toISOString(),
           updated_by: user?.id
         })
@@ -369,7 +352,7 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
     }
   }
 
-  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-red-600" /></div>;
+  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-neutral-400" /></div>;
 
   return (
     <div className="space-y-8">
@@ -386,22 +369,21 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
             </select>
           )}
           <div className="flex items-center gap-4">
-            <button
+            <Button
               type="button"
+              variant="secondary"
               onClick={() => setShowPreview(true)}
-              className="bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-xl font-semibold flex items-center gap-2 transition-all"
             >
               <Eye size={20} />
               <span className="hidden sm:inline">Preview</span>
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={saving}
-              className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-xl font-semibold flex items-center gap-2 transition-all disabled:opacity-50"
             >
               {saving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
               Save Changes
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -423,23 +405,22 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <label className="text-sm font-medium text-neutral-400">Venue Name</label>
-            <input
+            <Input
               type="text"
               required
               value={venue.name || ''}
               onChange={(e) => setVenue({ ...venue, name: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
             />
           </div>
           <div className="space-y-4 md:col-span-2">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-bold text-neutral-500 uppercase tracking-widest">Address Information</label>
+              <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Address Information</label>
               <div className="flex bg-neutral-800 p-1 rounded-xl border border-neutral-700">
                 <button
                   type="button"
                   onClick={() => setAddressParts({ ...addressParts, country: 'US', state: '' })}
                   className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    addressParts.country === 'US' ? 'bg-red-600 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                    addressParts.country === 'US' ? 'bg-red-600 text-white' : 'text-neutral-400 hover:text-neutral-300'
                   }`}
                 >
                   USA
@@ -448,7 +429,7 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
                   type="button"
                   onClick={() => setAddressParts({ ...addressParts, country: 'CA', state: '' })}
                   className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    addressParts.country === 'CA' ? 'bg-red-600 text-white' : 'text-neutral-500 hover:text-neutral-300'
+                    addressParts.country === 'CA' ? 'bg-red-600 text-white' : 'text-neutral-400 hover:text-neutral-300'
                   }`}
                 >
                   CANADA
@@ -460,12 +441,12 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
               <div className="md:col-span-2 space-y-2">
                 <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">Street Address</label>
                 <div className="relative">
-                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={18} />
-                  <input
+                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
+                  <Input
                     type="text"
                     value={addressParts.street || ''}
                     onChange={(e) => setAddressParts({ ...addressParts, street: e.target.value })}
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 pl-12 pr-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all"
+                    className="pl-12"
                     placeholder="123 Music Ave"
                   />
                 </div>
@@ -473,11 +454,10 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
 
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">City</label>
-                <input
+                <Input
                   type="text"
                   value={addressParts.city || ''}
                   onChange={(e) => setAddressParts({ ...addressParts, city: e.target.value })}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all"
                   placeholder="Nashville"
                 />
               </div>
@@ -503,15 +483,39 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
                   <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">
                     {addressParts.country === 'US' ? 'Zip Code' : 'Postal Code'}
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={addressParts.zip || ''}
                     onChange={(e) => setAddressParts({ ...addressParts, zip: e.target.value })}
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all"
                     placeholder={addressParts.country === 'US' ? '37201' : 'M5V 2T6'}
                   />
                 </div>
               </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-neutral-400">Phone</label>
+              <Input
+                type="tel"
+                value={venue.phone || ''}
+                onChange={(e) => setVenue({ ...venue, phone: formatPhoneNumber(e.target.value) })}
+                placeholder="(555) 000-0000"
+                className={venue.phone && !validatePhone(venue.phone) ? 'border-red-500/50 focus:ring-red-500' : ''}
+              />
+              {venue.phone && !validatePhone(venue.phone) && (
+                <p className="text-[10px] text-red-500 mt-1 ml-1 font-medium">Area code required (10 digits)</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-neutral-400">Email</label>
+              <Input
+                type="email"
+                value={venue.email || ''}
+                onChange={(e) => setVenue({ ...venue, email: e.target.value })}
+                placeholder="venue@email.com"
+              />
             </div>
           </div>
 
@@ -547,17 +551,6 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
               >
                 Upload Logo
               </ImageUpload>
-              <button
-                type="button"
-                onClick={() => {
-                  setStockPickerConfig({ type: 'logo', category: 'venue' });
-                  setIsStockPickerOpen(true);
-                }}
-                className="bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-neutral-700 flex items-center gap-2"
-              >
-                <ImageIcon size={16} />
-                Stock Library
-              </button>
             </div>
           </div>
 
@@ -593,171 +586,115 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
               >
                 Upload Hero Banner
               </ImageUpload>
-              <button
-                type="button"
-                onClick={() => {
-                  setStockPickerConfig({ type: 'hero', category: 'venue' });
-                  setIsStockPickerOpen(true);
-                }}
-                className="bg-neutral-800 hover:bg-neutral-700 text-neutral-400 hover:text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all border border-neutral-700 flex items-center gap-2"
-              >
-                <ImageIcon size={16} />
-                Stock Library
-              </button>
             </div>
           </div>
           <div className="space-y-2 md:col-span-2">
             <label className="text-sm font-medium text-neutral-400">Description</label>
-            <textarea
+            <Textarea
               rows={4}
               value={venue.description || ''}
               onChange={(e) => setVenue({ ...venue, description: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all resize-none"
             />
           </div>
           <div className="space-y-2 md:col-span-2">
             <label className="text-sm font-medium text-neutral-400">Bag Policy</label>
-            <textarea
-              rows={4}
+            <Textarea
+              rows={2}
               value={venue.bag_policy || ''}
               onChange={(e) => setVenue({ ...venue, bag_policy: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all resize-none"
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-neutral-400">Website</label>
-            <div className="relative group">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500 text-sm font-medium pointer-events-none group-focus-within:text-red-600 transition-colors">
-                https://
-              </div>
-              <input
-                type="text"
-                value={venue.website || ''}
-                onChange={(e) => setVenue({ ...venue, website: e.target.value })}
-                placeholder="www.venue.com"
-                className="w-full bg-neutral-800 border border-neutral-700 rounded-xl pl-[4.5rem] pr-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
-              />
+            <Input
+              type="text"
+              value={venue.website || ''}
+              onChange={(e) => setVenue({ ...venue, website: e.target.value })}
+              placeholder="www.venue.com"
+              className="pl-[4.5rem]"
+            />
+            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 text-sm font-medium pointer-events-none group-focus-within:text-red-500 transition-colors">
+              https://
             </div>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-neutral-400">LinkedIn URL</label>
-            <input
+            <Input
               type="text"
               value={venue.linkedin_url || ''}
               onChange={(e) => setVenue({ ...venue, linkedin_url: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-neutral-400">Pinterest URL</label>
-            <input
+            <Input
               type="text"
               value={venue.pinterest_url || ''}
               onChange={(e) => setVenue({ ...venue, pinterest_url: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-neutral-400">YouTube Channel URL</label>
-            <input
+            <Input
               type="text"
               value={venue.youtube_url || ''}
               onChange={(e) => setVenue({ ...venue, youtube_url: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-neutral-400">Instagram URL</label>
-            <input
+            <Input
               type="text"
               value={venue.instagram_url || ''}
               onChange={(e) => setVenue({ ...venue, instagram_url: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-neutral-400">Apple Music URL</label>
-            <input
+            <Input
               type="text"
               value={venue.apple_music_url || ''}
               onChange={(e) => setVenue({ ...venue, apple_music_url: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-neutral-400">Spotify URL</label>
-            <input
+            <Input
               type="text"
               value={venue.spotify_url || ''}
               onChange={(e) => setVenue({ ...venue, spotify_url: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-neutral-400">Facebook URL</label>
-            <input
+            <Input
               type="text"
               value={venue.facebook_url || ''}
               onChange={(e) => setVenue({ ...venue, facebook_url: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-neutral-400">Twitter (X) URL</label>
-            <input
+            <Input
               type="text"
               value={venue.twitter_url || ''}
               onChange={(e) => setVenue({ ...venue, twitter_url: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
-            />
-          </div>
-
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Phone</label>
-            <div className="relative">
-              <input
-                type="tel"
-                value={venue.phone || ''}
-                onChange={(e) => setVenue({ ...venue, phone: formatPhoneNumber(e.target.value) })}
-                placeholder="(555) 000-0000"
-                className={`w-full bg-neutral-800 border rounded-xl px-4 py-3 focus:ring-2 outline-none transition-all ${
-                  venue.phone && !validatePhone(venue.phone) 
-                    ? 'border-red-500/50 focus:ring-red-500' 
-                    : 'border-neutral-700 focus:ring-red-600'
-                }`}
-              />
-              {venue.phone && !validatePhone(venue.phone) && (
-                <p className="text-[10px] text-red-500 mt-1 ml-1 font-medium">Area code required (10 digits)</p>
-              )}
-            </div>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Email</label>
-            <input
-              type="email"
-              value={venue.email || ''}
-              onChange={(e) => setVenue({ ...venue, email: e.target.value })}
-              placeholder="venue@email.com"
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all"
             />
           </div>
           <div className="space-y-2 md:col-span-2">
             <label className="text-sm font-medium text-neutral-400">Food Description</label>
-            <textarea
+            <Textarea
               rows={2}
               value={venue.food_description || ''}
               onChange={(e) => setVenue({ ...venue, food_description: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all resize-none"
             />
           </div>
           <div className="space-y-2 md:col-span-2">
             <label className="text-sm font-medium text-neutral-400">Tech Specs (PA, Lighting, Stage)</label>
-            <textarea
+            <Textarea
               rows={4}
               value={venue.tech_specs || ''}
               onChange={(e) => setVenue({ ...venue, tech_specs: e.target.value })}
-              className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 focus:ring-2 focus:ring-red-600 outline-none transition-all resize-none"
               placeholder="List your PA system, lighting rig, stage dimensions, etc..."
             />
           </div>
@@ -766,7 +703,7 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium text-neutral-400">Images (Up to 5)</label>
-            <span className="text-xs text-neutral-500">{venue.images?.length || 0} / 5</span>
+            <span className="text-xs text-neutral-400">{venue.images?.length || 0} / 5</span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {venue.images?.map((img, idx) => (
@@ -790,7 +727,7 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
                     setVenue(prev => ({ ...prev, images: [...(prev.images || []), url] }));
                   }
                 }}
-                className="aspect-square border-2 border-dashed border-neutral-700 rounded-2xl flex flex-col items-center justify-center text-neutral-500 hover:border-red-600 hover:text-red-600 transition-all cursor-pointer"
+                className="aspect-square border-2 border-dashed border-neutral-700 rounded-2xl flex flex-col items-center justify-center text-neutral-400 hover:border-cyan-400 hover:text-cyan-400 transition-all cursor-pointer"
               />
             )}
           </div>
@@ -798,41 +735,6 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
       </form>
 
       {futureEvents.length > 0 && (
-        <div className="max-w-4xl mx-auto bg-neutral-900 p-8 rounded-3xl border border-neutral-800">
-          <h3 className="text-xl font-bold mb-6">Scheduled Events</h3>
-          <div className="space-y-4">
-            {futureEvents.map(event => (
-              <div key={event.id} className="flex items-center justify-between p-4 bg-neutral-800 rounded-2xl">
-                <div>
-                  <p className="font-medium text-white">{event.title}</p>
-                  <p className="text-sm text-neutral-400">
-                    {formatDate(event.start_time)} at {formatTimeString(event.doors_open_time)}
-                  </p>
-                </div>
-                <div className="text-xs text-neutral-500 uppercase tracking-widest">
-                  {new Date(event.start_time) < new Date() ? 'Past' : 'Upcoming'}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <StockImagePicker 
-        isOpen={isStockPickerOpen}
-        onClose={() => setIsStockPickerOpen(false)}
-        type={stockPickerConfig.type}
-        category={stockPickerConfig.category}
-        onSelect={(img) => {
-          if (stockPickerConfig.type === 'logo') {
-            setVenue(prev => ({ ...prev, logo_url: img.url }));
-          } else {
-            setVenue(prev => ({ ...prev, hero_url: img.url }));
-          }
-        }}
-      />
-
-      {showPreview && (
         <ProfilePreviewModal 
           isOpen={showPreview}
           onClose={() => setShowPreview(false)}

@@ -62,7 +62,7 @@ export default function ImageUpload({ onUploadComplete, type = 'gallery', classN
           </div>
         ) : (
           children || (
-            <div className="flex flex-col items-center justify-center h-full w-full text-neutral-500 hover:text-red-600 cursor-pointer transition-colors">
+            <div className="flex flex-col items-center justify-center h-full w-full text-neutral-400 hover:text-cyan-400 cursor-pointer transition-colors">
               <Upload size={24} className="mb-2" />
               <span className="text-[10px] font-bold uppercase tracking-widest">Upload Image</span>
             </div>
