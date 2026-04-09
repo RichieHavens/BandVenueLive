@@ -40,7 +40,7 @@ export default function Navigation() {
             className="h-12 md:h-14 w-auto flex items-center cursor-pointer hover:opacity-80 transition-opacity"
           >
             <img 
-              src="/BandVenue_Navbar_Micro_Final.png" 
+              src="/bandvenue_navbar_micro_final.png" 
               alt="BandVenue Logo" 
               className="h-full w-auto object-contain"
               referrerPolicy="no-referrer"

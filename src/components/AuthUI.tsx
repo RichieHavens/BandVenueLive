@@ -160,7 +160,7 @@ export default function AuthUI({ onSuccess }: { onSuccess?: () => void }) {
       >
         <div className="text-center mb-4">
           <img 
-            src="/BandVenue_Navbar_Micro_Final.png" 
+            src="/bandvenue_navbar_micro_final.png" 
             alt="BandVenue Logo" 
             className="h-24 w-auto mx-auto mb-4 object-contain"
             referrerPolicy="no-referrer"
