@@ -121,7 +121,7 @@ export function EventsView() {
         
         <div className="relative z-10 max-w-4xl flex flex-col items-start w-full">
           <p className="text-4xl md:text-6xl font-black uppercase tracking-tighter text-white drop-shadow-2xl">
-            Connecting local fans with <span className="text-cyan-400">local bands.</span>
+            Connecting local fans with <span className="text-cyan-400">local bands</span>
           </p>
         </div>
       </section>
