@@ -376,7 +376,7 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
       className="w-full flex items-center justify-between p-4 bg-neutral-900 border border-neutral-800 rounded-2xl hover:bg-neutral-800 transition-colors"
     >
       <div className="flex items-center gap-3">
-        <div className="p-2 bg-neutral-800 rounded-xl text-cyan-400">
+        <div className="p-2 bg-neutral-800 rounded-xl text-blue-500">
           <Icon size={20} />
         </div>
         <span className="font-bold text-white">{title}</span>
@@ -385,7 +385,7 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
     </button>
   );
 
-  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-cyan-500" /></div>;
+  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-blue-600" /></div>;
 
   return (
     <div className="space-y-6">
@@ -396,7 +396,7 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
             <select
               value={selectedVenueId || ''}
               onChange={(e) => setSelectedVenueId(e.target.value)}
-              className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-cyan-500 outline-none text-white max-w-[150px] sm:max-w-xs"
+              className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-blue-600 outline-none text-white max-w-[150px] sm:max-w-xs"
             >
               {venues.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
             </select>
@@ -506,14 +506,14 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
                     <button
                       type="button"
                       onClick={() => setAddressParts({ ...addressParts, country: 'US', state: '' })}
-                      className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all", addressParts.country === 'US' ? 'bg-cyan-500 text-white' : 'text-neutral-400 hover:text-neutral-300')}
+                      className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all", addressParts.country === 'US' ? 'bg-blue-600 text-white' : 'text-neutral-400 hover:text-neutral-300')}
                     >
                       USA
                     </button>
                     <button
                       type="button"
                       onClick={() => setAddressParts({ ...addressParts, country: 'CA', state: '' })}
-                      className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all", addressParts.country === 'CA' ? 'bg-cyan-500 text-white' : 'text-neutral-400 hover:text-neutral-300')}
+                      className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all", addressParts.country === 'CA' ? 'bg-blue-600 text-white' : 'text-neutral-400 hover:text-neutral-300')}
                     >
                       CANADA
                     </button>
@@ -596,7 +596,7 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
                 <div className="sm:col-span-2 space-y-2">
                   <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Website</label>
                   <div className="relative">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 text-sm font-medium pointer-events-none group-focus-within:text-cyan-500 transition-colors">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 text-sm font-medium pointer-events-none group-focus-within:text-blue-600 transition-colors">
                       https://
                     </div>
                     <input
@@ -604,7 +604,7 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
                       value={venue.website || ''}
                       onChange={(e) => setVenue({ ...venue, website: e.target.value })}
                       placeholder="www.venue.com"
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-xl py-3 pl-[4.5rem] pr-4 text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all"
+                      className="w-full bg-neutral-800 border border-neutral-700 rounded-xl py-3 pl-[4.5rem] pr-4 text-white focus:ring-2 focus:ring-blue-600 outline-none transition-all"
                     />
                   </div>
                 </div>
@@ -723,7 +723,7 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
                           setVenue(prev => ({ ...prev, images: [...(prev.images || []), url] }));
                         }
                       }}
-                      className="aspect-square border-2 border-dashed border-neutral-700 rounded-2xl flex flex-col items-center justify-center text-neutral-400 hover:border-cyan-400 hover:text-cyan-400 transition-all cursor-pointer"
+                      className="aspect-square border-2 border-dashed border-neutral-700 rounded-2xl flex flex-col items-center justify-center text-neutral-400 hover:border-blue-500 hover:text-blue-500 transition-all cursor-pointer"
                     >
                       <Plus size={24} />
                     </ImageUpload>

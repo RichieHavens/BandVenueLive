@@ -52,7 +52,8 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
     logo_url: '',
     hero_url: '',
     images: [],
-    video_links: []
+    video_links: [],
+    geography: 'Local'
   });
   const [initialBand, setInitialBand] = useState<Partial<Band> | null>(null);
   const [addressParts, setAddressParts] = useState<AddressParts>(parseAddress(''));
@@ -83,7 +84,8 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
       band.logo_url !== initialBand.logo_url ||
       band.hero_url !== initialBand.hero_url ||
       JSON.stringify(band.images) !== JSON.stringify(initialBand.images) ||
-      JSON.stringify(band.video_links) !== JSON.stringify(initialBand.video_links);
+      JSON.stringify(band.video_links) !== JSON.stringify(initialBand.video_links) ||
+      band.geography !== initialBand.geography;
     
     onDirtyChange?.(isDirty);
   }, [band, initialBand, onDirtyChange]);
@@ -152,7 +154,8 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
           logo_url: '',
           hero_url: '',
           images: [],
-          video_links: []
+          video_links: [],
+          geography: 'Local' as 'Local' | 'Regional' | 'National'
         };
         setBand(defaultBand);
         setInitialBand(defaultBand);
@@ -193,7 +196,8 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
         logo_url: '',
         hero_url: '',
         images: [],
-        video_links: []
+        video_links: [],
+        geography: 'Local' as 'Local' | 'Regional' | 'National'
       };
 
       if (data) {
@@ -205,7 +209,8 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
           logo_url: data.logo_url || '',
           hero_url: data.hero_url || '',
           images: data.images || [],
-          video_links: data.video_links || []
+          video_links: data.video_links || [],
+          geography: data.geography || 'Local'
         };
         setBand(cleanedData);
         setInitialBand(cleanedData);
@@ -334,7 +339,7 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
       className="w-full flex items-center justify-between p-4 bg-neutral-900 border border-neutral-800 rounded-2xl hover:bg-neutral-800 transition-colors"
     >
       <div className="flex items-center gap-3">
-        <div className="p-2 bg-neutral-800 rounded-xl text-cyan-400">
+        <div className="p-2 bg-neutral-800 rounded-xl text-blue-500">
           <Icon size={20} />
         </div>
         <span className="font-bold text-white">{title}</span>
@@ -343,7 +348,7 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
     </button>
   );
 
-  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-cyan-500" /></div>;
+  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-blue-600" /></div>;
 
   return (
     <div className="space-y-6">
@@ -396,13 +401,26 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
                 placeholder="e.g. The Rockers"
               />
 
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Band Geography</label>
+                <select
+                  value={band.geography || 'Local'}
+                  onChange={(e) => setBand({ ...band, geography: e.target.value as 'Local' | 'Regional' | 'National' })}
+                  className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-600 outline-none transition-all appearance-none"
+                >
+                  <option value="Local">Local</option>
+                  <option value="Regional">Regional</option>
+                  <option value="National">National</option>
+                </select>
+              </div>
+
               {isSuperAdmin && (
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Band Manager</label>
                   <select
                     value={band.manager_id || 'unassigned'}
                     onChange={(e) => setBand({ ...band, manager_id: e.target.value === 'unassigned' ? null : e.target.value })}
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all appearance-none"
+                    className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-600 outline-none transition-all appearance-none"
                   >
                     <option value="unassigned">Unassigned</option>
                     {managers.map(m => (
@@ -439,14 +457,14 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
                     <button
                       type="button"
                       onClick={() => setAddressParts({ ...addressParts, country: 'US', state: '' })}
-                      className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all", addressParts.country === 'US' ? 'bg-cyan-500 text-white' : 'text-neutral-400 hover:text-neutral-300')}
+                      className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all", addressParts.country === 'US' ? 'bg-blue-600 text-white' : 'text-neutral-400 hover:text-neutral-300')}
                     >
                       USA
                     </button>
                     <button
                       type="button"
                       onClick={() => setAddressParts({ ...addressParts, country: 'CA', state: '' })}
-                      className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all", addressParts.country === 'CA' ? 'bg-cyan-500 text-white' : 'text-neutral-400 hover:text-neutral-300')}
+                      className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all", addressParts.country === 'CA' ? 'bg-blue-600 text-white' : 'text-neutral-400 hover:text-neutral-300')}
                     >
                       CANADA
                     </button>
@@ -529,7 +547,7 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
                 <div className="sm:col-span-2 space-y-2">
                   <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Website</label>
                   <div className="relative">
-                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 text-sm font-medium pointer-events-none group-focus-within:text-cyan-500 transition-colors">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 text-sm font-medium pointer-events-none group-focus-within:text-blue-600 transition-colors">
                       https://
                     </div>
                     <input
@@ -537,7 +555,7 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
                       value={band.website || ''}
                       onChange={(e) => setBand({ ...band, website: e.target.value })}
                       placeholder="www.band.com"
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-xl py-3 pl-[4.5rem] pr-4 text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all"
+                      className="w-full bg-neutral-800 border border-neutral-700 rounded-xl py-3 pl-[4.5rem] pr-4 text-white focus:ring-2 focus:ring-blue-600 outline-none transition-all"
                     />
                   </div>
                 </div>
@@ -656,7 +674,7 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
                           setBand(prev => ({ ...prev, images: [...(prev.images || []), url] }));
                         }
                       }}
-                      className="aspect-square border-2 border-dashed border-neutral-700 rounded-2xl flex flex-col items-center justify-center text-neutral-400 hover:border-cyan-400 hover:text-cyan-400 transition-all cursor-pointer"
+                      className="aspect-square border-2 border-dashed border-neutral-700 rounded-2xl flex flex-col items-center justify-center text-neutral-400 hover:border-blue-500 hover:text-blue-500 transition-all cursor-pointer"
                     >
                       <Plus size={24} />
                     </ImageUpload>
@@ -738,7 +756,7 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
                   />
                   <div className={cn(
                     "w-12 h-6 rounded-full transition-colors relative",
-                    band.is_published ? "bg-cyan-500" : "bg-neutral-700"
+                    band.is_published ? "bg-blue-600" : "bg-neutral-700"
                   )}>
                     <div className={cn(
                       "absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform",

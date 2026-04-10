@@ -77,7 +77,7 @@ export function BandsView() {
             <select
               value={selectedGenre}
               onChange={(e) => setSelectedGenre(e.target.value)}
-              className="bg-neutral-800 border border-neutral-700 rounded-xl py-2 px-4 text-sm focus:ring-2 focus:ring-cyan-400 outline-none text-white"
+              className="bg-neutral-800 border border-neutral-700 rounded-xl py-2 px-4 text-sm focus:ring-2 focus:ring-blue-500 outline-none text-white"
             >
               {allGenres.map(g => <option key={g} value={g}>{g}</option>)}
             </select>
@@ -94,7 +94,7 @@ export function BandsView() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-20"><Loader2 className="animate-spin text-cyan-400" size={48} /></div>
+        <div className="flex justify-center py-20"><Loader2 className="animate-spin text-blue-600" size={48} /></div>
       ) : filtered.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {filtered.map((band) => {
@@ -119,7 +119,7 @@ export function BandsView() {
                 <div>
                   <div className="flex flex-wrap gap-1 mb-2">
                     {(band as any).genres?.map((g: string) => (
-                      <span key={g} className="text-[10px] font-bold uppercase tracking-widest text-cyan-400/70">{g}</span>
+                      <span key={g} className="text-[10px] font-bold uppercase tracking-widest text-blue-500/70">{g}</span>
                     ))}
                   </div>
                   <h3 className="text-2xl font-bold mb-1 text-white">{band.name}</h3>

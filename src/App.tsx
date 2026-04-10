@@ -67,13 +67,6 @@ function AppContent() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [unsavedChanges]);
 
-  if (!isUnlocked) {
-    return <ComingSoon onUnlock={() => {
-      sessionStorage.setItem('unlocked', 'true');
-      setIsUnlocked(true);
-    }} />;
-  }
-
   useEffect(() => {
     // Check if we are in a password reset flow
     const hash = window.location.hash;
@@ -91,6 +84,13 @@ function AppContent() {
       setActiveTab('confirm-event');
     }
   }, []);
+
+  if (!isUnlocked) {
+    return <ComingSoon onUnlock={() => {
+      sessionStorage.setItem('unlocked', 'true');
+      setIsUnlocked(true);
+    }} />;
+  }
 
   if (loading) {
     return (

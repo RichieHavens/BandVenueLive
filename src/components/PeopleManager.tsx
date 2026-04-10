@@ -774,7 +774,7 @@ export default function PeopleManager() {
                             id="createAccount"
                             checked={createAccount}
                             onChange={(e) => setCreateAccount(e.target.checked)}
-                            className="rounded border-neutral-700 bg-neutral-800 text-cyan-400 focus:ring-cyan-400"
+                            className="rounded border-neutral-700 bg-neutral-800 text-blue-500 focus:ring-blue-500"
                           />
                           <label htmlFor="createAccount" className="text-xs font-bold uppercase tracking-widest text-neutral-400">
                             Assign Login Privileges (Set Password)

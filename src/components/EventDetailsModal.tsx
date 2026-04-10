@@ -12,6 +12,15 @@ interface EventDetailsModalProps {
 }
 
 export default function EventDetailsModal({ event, onClose }: EventDetailsModalProps) {
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+  const [isAtTop, setIsAtTop] = React.useState(true);
+
+  const handleScroll = () => {
+    if (scrollRef.current) {
+      setIsAtTop(scrollRef.current.scrollTop === 0);
+    }
+  };
+
   // Prevent body scroll when open
   useEffect(() => {
     if (event) {
@@ -52,7 +61,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
         animate={{ opacity: 1, y: 0 }}
         exit={{ opacity: 0, y: "100%" }}
         transition={{ type: "spring", damping: 25, stiffness: 200 }}
-        drag="y"
+        drag={isAtTop ? "y" : false}
         dragConstraints={{ top: 0, bottom: 0 }}
         dragElastic={{ top: 0, bottom: 0.5 }}
         onDragEnd={(e, { offset, velocity }) => {
@@ -73,7 +82,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
           <X size={18} />
         </button>
 
-        <div className="overflow-y-auto custom-scrollbar flex-1 pb-safe sm:pb-8">
+        <div ref={scrollRef} onScroll={handleScroll} className="overflow-y-auto custom-scrollbar flex-1 pb-24 sm:pb-32">
           {/* Hero Area */}
           <div className="w-full h-48 sm:h-64 relative bg-neutral-900 shrink-0">
             {event.hero_url ? (
@@ -98,7 +107,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
             <div className="space-y-3">
               <div className="flex flex-wrap gap-2 mb-2">
                 {event.event_genres?.map((g: string) => (
-                  <Badge key={g} variant="secondary" className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20">
+                  <Badge key={g} variant="secondary" className="bg-blue-600/10 text-blue-500 border-blue-600/20">
                     {g}
                   </Badge>
                 ))}
@@ -108,20 +117,20 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
               
               {bandNames && displayTitle !== bandNames && (
                 <p className="text-lg text-neutral-300 font-medium flex items-center gap-2">
-                  <Music size={16} className="text-cyan-400 shrink-0" />
+                  <Music size={16} className="text-blue-500 shrink-0" />
                   {bandNames}
                 </p>
               )}
 
               <div className="flex flex-col gap-2 pt-2">
                 <div className="flex items-center gap-3 text-neutral-300">
-                  <Calendar size={16} className="text-cyan-400 shrink-0" />
+                  <Calendar size={16} className="text-blue-500 shrink-0" />
                   <span className="font-medium">{formatFullDate(event.start_time)}</span>
                   <span className="text-neutral-500">•</span>
                   <span>{formatTime(event.start_time)}</span>
                 </div>
                 <div className="flex items-center gap-3 text-neutral-300">
-                  <MapPin size={16} className="text-cyan-400 shrink-0" />
+                  <MapPin size={16} className="text-blue-500 shrink-0" />
                   <span className="font-medium">{venueName}</span>
                 </div>
               </div>
@@ -182,7 +191,7 @@ export default function EventDetailsModal({ event, onClose }: EventDetailsModalP
 
         {/* Fixed Bottom Action (Tickets/External) */}
         <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 bg-gradient-to-t from-neutral-950 via-neutral-950 to-transparent pt-12">
-          <Button className="w-full h-12 text-base font-bold shadow-lg shadow-cyan-500/20">
+          <Button className="w-full h-12 text-base font-bold shadow-lg shadow-blue-600/20">
             <Ticket size={18} className="mr-2" /> Get Tickets
           </Button>
         </div>

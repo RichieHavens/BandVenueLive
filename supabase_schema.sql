@@ -225,6 +225,7 @@ CREATE TABLE bands (
   twitter_url TEXT,
   images TEXT[] DEFAULT '{}',
   video_links TEXT[] DEFAULT '{}',
+  geography TEXT DEFAULT 'Local' CHECK (geography IN ('Local', 'Regional', 'National')),
   is_seed BOOLEAN DEFAULT FALSE, -- Forensic seed data
   person_id UUID REFERENCES people(id),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

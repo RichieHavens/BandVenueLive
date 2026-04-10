@@ -47,7 +47,7 @@ export function DashboardView() {
         return (
           <Card key={cardId} className="bg-neutral-900 border-neutral-800 p-4 group hover:border-primary transition-all cursor-pointer" onClick={() => { setEventFilter({ attention: 'open_slots', entity: 'all' }); setActiveTab('manage-events'); }}>
             <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-cyan-500/10 rounded-lg text-cyan-400">
+              <div className="p-2 bg-blue-600/10 rounded-lg text-blue-500">
                 <Plus size={16} />
               </div>
               <h3 className="text-sm font-bold text-white">Open Dates</h3>

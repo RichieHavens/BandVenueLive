@@ -148,7 +148,7 @@ export default function QuickAddEventModal({ isOpen, onClose, onSuccess }: Quick
               <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} className="sr-only" />
               <div className={cn(
                 "w-5 h-5 rounded border flex items-center justify-center transition-colors",
-                isPublic ? "bg-cyan-500 border-cyan-500" : "bg-neutral-900 border-neutral-600 group-hover:border-neutral-500"
+                isPublic ? "bg-blue-600 border-blue-600" : "bg-neutral-900 border-neutral-600 group-hover:border-neutral-500"
               )}>
                 {isPublic && <div className="w-2.5 h-2.5 bg-white rounded-sm" />}
               </div>
@@ -159,7 +159,7 @@ export default function QuickAddEventModal({ isOpen, onClose, onSuccess }: Quick
               <input type="checkbox" checked={hasMultipleActs} onChange={(e) => setHasMultipleActs(e.target.checked)} className="sr-only" />
               <div className={cn(
                 "w-5 h-5 rounded border flex items-center justify-center transition-colors",
-                hasMultipleActs ? "bg-cyan-500 border-cyan-500" : "bg-neutral-900 border-neutral-600 group-hover:border-neutral-500"
+                hasMultipleActs ? "bg-blue-600 border-blue-600" : "bg-neutral-900 border-neutral-600 group-hover:border-neutral-500"
               )}>
                 {hasMultipleActs && <div className="w-2.5 h-2.5 bg-white rounded-sm" />}
               </div>

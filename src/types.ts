@@ -198,6 +198,7 @@ export interface Band {
   twitter_url?: string;
   images: string[];
   video_links: string[];
+  geography: 'Local' | 'Regional' | 'National';
   is_published?: boolean;
   is_archived?: boolean;
   is_confirmed: boolean;

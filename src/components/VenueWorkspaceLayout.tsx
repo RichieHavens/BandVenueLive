@@ -26,7 +26,7 @@ export default function VenueWorkspaceLayout({ venues, loading, eventCounts }: V
   }, [venues, selectedVenueId]);
 
   if (loading) {
-    return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-red-600" size={48} /></div>;
+    return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-blue-600" size={48} /></div>;
   }
 
   const selectedVenue = venues.find(v => v.id === selectedVenueId);
@@ -41,7 +41,7 @@ export default function VenueWorkspaceLayout({ venues, loading, eventCounts }: V
     <div className="flex flex-col gap-4">
       <h2 className="text-sm font-bold uppercase tracking-wider text-neutral-500 px-2">My Venues</h2>
       {venues.map(venue => (
-        <div key={venue.id} className={cn("p-3 rounded-2xl border transition-all", selectedVenueId === venue.id ? "bg-neutral-900 border-cyan-500 ring-1 ring-cyan-500" : "bg-neutral-950 border-neutral-800 hover:border-neutral-700")}>
+        <div key={venue.id} className={cn("p-3 rounded-2xl border transition-all", selectedVenueId === venue.id ? "bg-neutral-900 border-blue-600 ring-1 ring-blue-600" : "bg-neutral-950 border-neutral-800 hover:border-neutral-700")}>
           <div className="flex items-center gap-3 mb-2">
             <div className="w-8 h-8 bg-neutral-800 rounded-lg flex items-center justify-center">
               <Building2 size={16} className="text-neutral-400" />
@@ -53,19 +53,19 @@ export default function VenueWorkspaceLayout({ venues, loading, eventCounts }: V
           <div className="grid grid-cols-3 gap-1">
             <button 
               onClick={() => { setSelectedVenueId(venue.id); setSelectedAction('view-profile'); setIsDrawerOpen(false); }} 
-              className={cn("text-[10px] py-1 px-1 rounded", selectedAction === 'view-profile' && selectedVenueId === venue.id ? "bg-cyan-900 text-cyan-100" : "bg-neutral-800 hover:bg-neutral-700")}
+              className={cn("text-[10px] py-1 px-1 rounded", selectedAction === 'view-profile' && selectedVenueId === venue.id ? "bg-blue-900 text-blue-100" : "bg-neutral-800 hover:bg-neutral-700")}
             >
               Profile
             </button>
             <button 
               onClick={() => { setSelectedVenueId(venue.id); setSelectedAction('edit-profile'); setIsDrawerOpen(false); }} 
-              className={cn("text-[10px] py-1 px-1 rounded", selectedAction === 'edit-profile' && selectedVenueId === venue.id ? "bg-cyan-900 text-cyan-100" : "bg-neutral-800 hover:bg-neutral-700")}
+              className={cn("text-[10px] py-1 px-1 rounded", selectedAction === 'edit-profile' && selectedVenueId === venue.id ? "bg-blue-900 text-blue-100" : "bg-neutral-800 hover:bg-neutral-700")}
             >
               Edit
             </button>
             <button 
               onClick={() => { setSelectedVenueId(venue.id); setSelectedAction('view-events'); setIsDrawerOpen(false); }} 
-              className={cn("text-[10px] py-1 px-1 rounded", selectedAction === 'view-events' && selectedVenueId === venue.id ? "bg-cyan-900 text-cyan-100" : "bg-neutral-800 hover:bg-neutral-700")}
+              className={cn("text-[10px] py-1 px-1 rounded", selectedAction === 'view-events' && selectedVenueId === venue.id ? "bg-blue-900 text-blue-100" : "bg-neutral-800 hover:bg-neutral-700")}
             >
               Events ({eventCounts[venue.id] || 0})
             </button>

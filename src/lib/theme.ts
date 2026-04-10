@@ -16,7 +16,7 @@ export const statusColors: Record<EventStatus, string> = {
 
 export const theme = {
   card: "bg-neutral-900 border border-neutral-800 rounded-3xl p-6 shadow-sm",
-  input: "w-full bg-neutral-950 border border-neutral-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all placeholder:text-neutral-600",
+  input: "w-full bg-neutral-950 border border-neutral-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-blue-600 outline-none transition-all placeholder:text-neutral-600",
   button: {
     primary: "btn-primary-gradient",
     secondary: "bg-neutral-800 border border-neutral-700 text-neutral-300 hover:bg-neutral-700 hover:text-white",

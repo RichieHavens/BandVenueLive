@@ -301,7 +301,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                 <h2 className="text-4xl font-bold text-white mb-2">{currentData.name || 'Venue Name'}</h2>
                 {currentData.address && (
                   <p className="text-neutral-300 flex items-center gap-2">
-                    <MapPin size={16} className="text-red-500" /> {displayAddress(currentData.address)}
+                    <MapPin size={16} className="text-red-500" /> {currentData.address}
                   </p>
                 )}
               </div>

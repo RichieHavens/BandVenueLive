@@ -231,7 +231,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
       className="w-full flex items-center justify-between p-4 bg-neutral-900 border border-neutral-800 rounded-2xl hover:bg-neutral-800 transition-colors"
     >
       <div className="flex items-center gap-3">
-        <div className="p-2 bg-neutral-800 rounded-xl text-cyan-400">
+        <div className="p-2 bg-neutral-800 rounded-xl text-blue-500">
           <Icon size={20} />
         </div>
         <span className="font-bold text-white">{title}</span>
@@ -240,7 +240,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
     </button>
   );
 
-  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-cyan-500" /></div>;
+  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-blue-600" /></div>;
 
   return (
     <div className="space-y-6">
@@ -448,7 +448,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
                   </div>
                   <div className={cn(
                     "w-12 h-6 rounded-full transition-colors relative",
-                    (event as any)?.[toggle.id] ? "bg-cyan-500" : "bg-neutral-800"
+                    (event as any)?.[toggle.id] ? "bg-blue-600" : "bg-neutral-800"
                   )}>
                     <div className={cn(
                       "absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform",

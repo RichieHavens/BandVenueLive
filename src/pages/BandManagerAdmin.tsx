@@ -186,7 +186,7 @@ export function BandManagerAdmin() {
 
             {loading ? (
               <div className="flex justify-center py-20">
-                <Loader2 className="animate-spin text-cyan-400" size={48} />
+                <Loader2 className="animate-spin text-blue-500" size={48} />
               </div>
             ) : filteredBands.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -194,7 +194,7 @@ export function BandManagerAdmin() {
                   <Card 
                     key={band.id}
                     className={`flex gap-6 p-6 transition-all group ${
-                      bandId === band.id ? 'border-cyan-400 ring-1 ring-cyan-400' : 'border-neutral-700 hover:border-neutral-600'
+                      bandId === band.id ? 'border-blue-500 ring-1 ring-blue-500' : 'border-neutral-700 hover:border-neutral-600'
                     }`}
                   >
                     <div className="w-24 h-24 rounded-2xl bg-neutral-900 overflow-hidden shrink-0">
@@ -215,7 +215,7 @@ export function BandManagerAdmin() {
                             setBandId(band.id);
                             setActiveTab('events');
                           }}
-                          className="text-xs text-cyan-400 hover:text-cyan-300"
+                          className="text-xs text-blue-500 hover:text-blue-400"
                         >
                           Manage
                         </Button>

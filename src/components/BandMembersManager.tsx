@@ -188,7 +188,7 @@ export default function BandMembersManager({ bandId }: BandMembersManagerProps) 
 
       {loading ? (
         <div className="flex justify-center py-8">
-          <Loader2 className="animate-spin text-cyan-500" size={32} />
+          <Loader2 className="animate-spin text-blue-600" size={32} />
         </div>
       ) : members.length === 0 ? (
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-8 text-center">
@@ -217,7 +217,7 @@ export default function BandMembersManager({ bandId }: BandMembersManagerProps) 
                   }}
                   className="shrink-0"
                 >
-                  <Edit2 size={16} className="text-neutral-400 hover:text-cyan-400" />
+                  <Edit2 size={16} className="text-neutral-400 hover:text-blue-500" />
                 </Button>
               </div>
               <div className="flex items-center justify-between pt-4 border-t border-neutral-800">
@@ -226,7 +226,7 @@ export default function BandMembersManager({ bandId }: BandMembersManagerProps) 
                   variant={member.is_active ? 'primary' : 'secondary'}
                   size="sm"
                   onClick={() => toggleStatus(member)}
-                  className={cn("shrink-0 text-xs py-1 h-auto", member.is_active ? "bg-cyan-500/10 text-cyan-500 hover:bg-cyan-500/20" : "")}
+                  className={cn("shrink-0 text-xs py-1 h-auto", member.is_active ? "bg-blue-600/10 text-blue-600 hover:bg-blue-600/20" : "")}
                 >
                   {member.is_active ? 'Active' : 'Inactive'}
                 </Button>
@@ -310,7 +310,7 @@ export default function BandMembersManager({ bandId }: BandMembersManagerProps) 
                 />
                 <div className={cn(
                   "w-5 h-5 rounded border flex items-center justify-center transition-colors",
-                  editingMember?.is_active !== false ? "bg-cyan-500 border-cyan-500" : "bg-neutral-900 border-neutral-600 group-hover:border-neutral-500"
+                  editingMember?.is_active !== false ? "bg-blue-600 border-blue-600" : "bg-neutral-900 border-neutral-600 group-hover:border-neutral-500"
                 )}>
                   {editingMember?.is_active !== false && <div className="w-2.5 h-2.5 bg-white rounded-sm" />}
                 </div>

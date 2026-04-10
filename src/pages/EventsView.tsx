@@ -129,7 +129,7 @@ export function EventsView() {
         
         <div className="relative z-10 max-w-4xl flex flex-col items-start w-full">
           <p className="text-2xl md:text-5xl font-black uppercase tracking-tighter text-white drop-shadow-2xl leading-none">
-            Connecting local fans with <span className="text-cyan-400">local bands.</span>
+            Connecting local fans with <span className="text-blue-500">local bands.</span>
           </p>
         </div>
       </section>
@@ -147,7 +147,7 @@ export function EventsView() {
                 className={cn(
                   "px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap",
                   filter.date === new Date().toISOString().split('T')[0]
-                    ? "bg-cyan-500 text-white shadow-lg shadow-cyan-500/20"
+                    ? "bg-blue-600 text-white shadow-lg shadow-blue-600/20"
                     : "bg-neutral-900 text-neutral-400 border border-neutral-800"
                 )}
               >
@@ -186,7 +186,7 @@ export function EventsView() {
                           onClick={() => setFilter({...filter, genre: ''})}
                           className={cn(
                             "px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all",
-                            !filter.genre ? "bg-cyan-500 text-white" : "bg-neutral-900 text-neutral-400 border border-neutral-800"
+                            !filter.genre ? "bg-blue-600 text-white" : "bg-neutral-900 text-neutral-400 border border-neutral-800"
                           )}
                         >
                           All
@@ -197,7 +197,7 @@ export function EventsView() {
                             onClick={() => setFilter({...filter, genre: g as string})}
                             className={cn(
                               "px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all",
-                              filter.genre === g ? "bg-cyan-500 text-white" : "bg-neutral-900 text-neutral-400 border border-neutral-800"
+                              filter.genre === g ? "bg-blue-600 text-white" : "bg-neutral-900 text-neutral-400 border border-neutral-800"
                             )}
                           >
                             {g as string}
@@ -212,7 +212,7 @@ export function EventsView() {
                         <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={16} />
                         <input 
                           type="date" 
-                          className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-10 pr-4 h-12 text-white outline-none focus:ring-2 focus:ring-cyan-500"
+                          className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-10 pr-4 h-12 text-white outline-none focus:ring-2 focus:ring-blue-600"
                           value={filter.date}
                           onChange={(e) => setFilter({...filter, date: e.target.value})}
                         />
@@ -277,7 +277,7 @@ export function EventsView() {
               <div className="relative">
                 <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={14} />
                 <select 
-                  className="bg-neutral-900 border border-neutral-800 rounded-lg pl-10 pr-4 h-10 text-sm outline-none focus:ring-2 focus:ring-cyan-400 appearance-none text-white"
+                  className="bg-neutral-900 border border-neutral-800 rounded-lg pl-10 pr-4 h-10 text-sm outline-none focus:ring-2 focus:ring-blue-500 appearance-none text-white"
                   value={filter.genre}
                   onChange={(e) => setFilter({...filter, genre: e.target.value})}
                 >
@@ -288,7 +288,7 @@ export function EventsView() {
                 </select>
               </div>
               <div className="relative group">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-cyan-400 transition-colors pointer-events-none" size={14} />
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-blue-500 transition-colors pointer-events-none" size={14} />
                 <input 
                   type="date" 
                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
@@ -346,7 +346,7 @@ export function EventsView() {
                     </Badge>
                   )}
                 </div>
-                <button onClick={() => setFilter({genre: '', venue: '', date: ''})} className="text-[10px] font-bold text-cyan-500 hover:text-cyan-400 shrink-0 pl-3 border-l border-neutral-800 h-6 flex items-center">Clear All</button>
+                <button onClick={() => setFilter({genre: '', venue: '', date: ''})} className="text-[10px] font-bold text-blue-600 hover:text-blue-500 shrink-0 pl-3 border-l border-neutral-800 h-6 flex items-center">Clear All</button>
               </motion.div>
             )}
           </AnimatePresence>
@@ -354,7 +354,7 @@ export function EventsView() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-20"><Loader2 className="animate-spin text-cyan-400" size={48} /></div>
+        <div className="flex justify-center py-20"><Loader2 className="animate-spin text-blue-600" size={48} /></div>
       ) : filteredEvents.length === 0 ? (
         <div className="text-center py-20 text-neutral-400">No events found for the selected filters.</div>
       ) : (

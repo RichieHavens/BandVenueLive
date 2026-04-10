@@ -269,7 +269,7 @@ export default function DeduplicationTool() {
                 <div key={log.id} className="flex items-center justify-between p-3 bg-neutral-800/50 rounded-xl border border-neutral-700/50">
                   <div className="space-y-1">
                     <p className="text-sm font-bold text-neutral-200">
-                      Merged into: <span className="text-cyan-400">{log.changes.master_title}</span>
+                      Merged into: <span className="text-blue-500">{log.changes.master_title}</span>
                     </p>
                     <p className="text-[10px] text-neutral-400 font-mono">
                       {log.changes.duplicate_ids.length} duplicates removed • {log.changes.details.acts_moved} acts moved
@@ -294,7 +294,7 @@ export default function DeduplicationTool() {
 
       {loading ? (
         <div className="flex justify-center py-20">
-          <Loader2 className="animate-spin text-cyan-400" size={48} />
+          <Loader2 className="animate-spin text-blue-500" size={48} />
         </div>
       ) : groups.length === 0 ? (
         <Card className="text-center py-20">
@@ -313,7 +313,7 @@ export default function DeduplicationTool() {
                     {venues[group.events[0].venue_id] || 'Unknown Venue'} • {formatDate(group.events[0].start_time)}
                   </p>
                 </div>
-                <div className="px-3 py-1 bg-cyan-400/10 text-cyan-400 rounded-full text-xs font-bold uppercase tracking-widest">
+                <div className="px-3 py-1 bg-blue-500/10 text-blue-500 rounded-full text-xs font-bold uppercase tracking-widest">
                   {group.events.length} Duplicates
                 </div>
               </div>

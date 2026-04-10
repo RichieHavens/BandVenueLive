@@ -1378,15 +1378,15 @@ export function ScraperView() {
         <h2 className="text-2xl font-bold text-white">Scraper Settings</h2>
         <div className="flex gap-4">
           <label className="flex items-center gap-2 cursor-pointer text-neutral-300 hover:text-white transition-colors">
-            <input type="checkbox" checked={scrapeVenues} onChange={(e) => setScrapeVenues(e.target.checked)} className="accent-cyan-500" />
+            <input type="checkbox" checked={scrapeVenues} onChange={(e) => setScrapeVenues(e.target.checked)} className="accent-blue-600" />
             Venues
           </label>
           <label className="flex items-center gap-2 cursor-pointer text-neutral-300 hover:text-white transition-colors">
-            <input type="checkbox" checked={scrapeBands} onChange={(e) => setScrapeBands(e.target.checked)} className="accent-cyan-500" />
+            <input type="checkbox" checked={scrapeBands} onChange={(e) => setScrapeBands(e.target.checked)} className="accent-blue-600" />
             Bands
           </label>
           <label className="flex items-center gap-2 cursor-pointer text-neutral-300 hover:text-white transition-colors">
-            <input type="checkbox" checked={scrapeEvents} onChange={(e) => setScrapeEvents(e.target.checked)} className="accent-cyan-500" />
+            <input type="checkbox" checked={scrapeEvents} onChange={(e) => setScrapeEvents(e.target.checked)} className="accent-blue-600" />
             Events
           </label>
         </div>
@@ -1394,14 +1394,14 @@ export function ScraperView() {
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest mb-2">Target Venue (Optional)</label>
-            <select value={selectedVenueId} onChange={(e) => handleVenueChange(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2 text-sm outline-none text-white focus:border-cyan-500 transition-colors">
+            <select value={selectedVenueId} onChange={(e) => handleVenueChange(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2 text-sm outline-none text-white focus:border-blue-600 transition-colors">
               <option value="">Select Venue</option>
               {venues.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-xs font-bold text-neutral-400 uppercase tracking-widest mb-2">Target Band (Optional)</label>
-            <select value={selectedBandId} onChange={(e) => handleBandChange(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2 text-sm outline-none text-white focus:border-cyan-500 transition-colors">
+            <select value={selectedBandId} onChange={(e) => handleBandChange(e.target.value)} className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2 text-sm outline-none text-white focus:border-blue-600 transition-colors">
               <option value="">Select Band</option>
               {bands.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
@@ -1447,7 +1447,7 @@ export function ScraperView() {
               <Button 
                 variant="ghost"
                 onClick={() => fileInputRef.current?.click()}
-                className="text-cyan-400 hover:text-cyan-300"
+                className="text-blue-500 hover:text-blue-400"
               >
                 <Upload size={16} className="mr-2" />
                 Upload File
@@ -1479,7 +1479,7 @@ export function ScraperView() {
 
         {status && (
           <div className="mt-4 flex items-center gap-2 text-sm text-neutral-400">
-            {loading && <Loader2 className="animate-spin text-cyan-500" size={14} />}
+            {loading && <Loader2 className="animate-spin text-blue-600" size={14} />}
             {status}
           </div>
         )}
@@ -1516,7 +1516,7 @@ export function ScraperView() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card>
               <div className="flex items-center gap-3 mb-4">
-                <MapPin className="text-cyan-500" size={20} />
+                <MapPin className="text-blue-600" size={20} />
                 <h4 className="font-bold text-white">Venues ({results.venues.length})</h4>
               </div>
               <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
@@ -1566,7 +1566,7 @@ export function ScraperView() {
 
             <Card>
               <div className="flex items-center gap-3 mb-4">
-                <Music className="text-cyan-500" size={20} />
+                <Music className="text-blue-600" size={20} />
                 <h4 className="font-bold text-white">Bands ({results.bands.length})</h4>
               </div>
               <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
@@ -1607,7 +1607,7 @@ export function ScraperView() {
 
             <Card>
               <div className="flex items-center gap-3 mb-4">
-                <Calendar className="text-cyan-500" size={20} />
+                <Calendar className="text-blue-600" size={20} />
                 <h4 className="font-bold text-white">Events ({results.events.length})</h4>
               </div>
               <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
@@ -1771,8 +1771,8 @@ export function ScraperView() {
                 {/* New Record Section */}
                 <section>
                   <div className="flex items-center justify-between mb-6">
-                    <h4 className="text-lg font-bold text-cyan-500 flex items-center gap-2">
-                      <div className="w-2 h-2 bg-cyan-500 rounded-full animate-pulse" />
+                    <h4 className="text-lg font-bold text-blue-600 flex items-center gap-2">
+                      <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse" />
                       New Record (Scraped Data)
                     </h4>
                     <div className="flex gap-3">
@@ -1787,7 +1787,7 @@ export function ScraperView() {
                       </Button>
                       <Button
                         onClick={() => handleImportSingle(editingRecord.type, editingRecord.index, editingRecord.data)}
-                        className="bg-cyan-600 hover:bg-cyan-700"
+                        className="bg-blue-700 hover:bg-blue-800"
                       >
                         <Plus size={14} className="mr-2" />
                         Add {editingRecord.type.slice(0, -1)}

@@ -754,7 +754,7 @@ export function AdminView() {
                 )}
               </div>
               {loadingGenres ? (
-                <div className="flex justify-center py-12"><Loader2 className="animate-spin text-cyan-400" size={32} /></div>
+                <div className="flex justify-center py-12"><Loader2 className="animate-spin text-blue-500" size={32} /></div>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {genres.map((g) => (
@@ -794,7 +794,7 @@ export function AdminView() {
                       {venueReport.map((v, i) => (
                         <tr key={i} className="border-b border-neutral-800 hover:bg-neutral-800/30 transition-colors">
                           <td className="p-4 font-medium text-white">{v.name}</td>
-                          <td className="p-4 text-cyan-400 font-bold">{v.future}</td>
+                          <td className="p-4 text-blue-500 font-bold">{v.future}</td>
                           <td className="p-4 text-neutral-400">{v.past}</td>
                         </tr>
                       ))}
@@ -821,7 +821,7 @@ export function AdminView() {
                       {bandReport.map((b, i) => (
                         <tr key={i} className="border-b border-neutral-800 hover:bg-neutral-800/30 transition-colors">
                           <td className="p-4 font-medium text-white">{b.name}</td>
-                          <td className="p-4 text-cyan-400 font-bold">{b.future}</td>
+                          <td className="p-4 text-blue-500 font-bold">{b.future}</td>
                           <td className="p-4 text-neutral-400">{b.past}</td>
                         </tr>
                       ))}
@@ -834,7 +834,7 @@ export function AdminView() {
           {activeSubTab === 'syndication' && (
             <Card className="text-center py-12 space-y-6 bg-neutral-800/30 border-neutral-700">
               <div className="w-20 h-20 bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Globe className="text-cyan-400" size={32} />
+                <Globe className="text-blue-500" size={32} />
               </div>
               <h3 className="text-xl font-bold">Syndication Partners</h3>
               <p className="text-neutral-400 max-w-md mx-auto">Manage external websites and platforms that display your event data.</p>
@@ -862,7 +862,7 @@ export function AdminView() {
                     className="w-48"
                   />
                   <select
-                    className="bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-2 text-sm text-white focus:ring-2 focus:ring-cyan-400 focus:border-transparent"
+                    className="bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-2 text-sm text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     value={venueFilter}
                     onChange={(e) => setVenueFilter(e.target.value)}
                   >
@@ -875,7 +875,7 @@ export function AdminView() {
                 </div>
               </div>
               {loadingVenues ? (
-                <div className="flex justify-center py-12"><Loader2 className="animate-spin text-cyan-400" size={32} /></div>
+                <div className="flex justify-center py-12"><Loader2 className="animate-spin text-blue-500" size={32} /></div>
               ) : (
                 <div className="space-y-2">
                   {filteredVenues.map((v: any) => (
@@ -948,7 +948,7 @@ export function AdminView() {
                     className="w-48"
                   />
                   <select
-                    className="bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-2 text-sm text-white focus:ring-2 focus:ring-cyan-400 focus:border-transparent"
+                    className="bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-2 text-sm text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     value={bandFilter}
                     onChange={(e) => setBandFilter(e.target.value)}
                   >
@@ -966,7 +966,7 @@ export function AdminView() {
                 </div>
               </div>
               {loadingBands ? (
-                <div className="flex justify-center py-12"><Loader2 className="animate-spin text-cyan-400" size={32} /></div>
+                <div className="flex justify-center py-12"><Loader2 className="animate-spin text-blue-500" size={32} /></div>
               ) : (
                 <div className="space-y-2">
                   {filteredBands.map((b: any) => (
@@ -1039,7 +1039,7 @@ export function AdminView() {
                     className="w-48"
                   />
                   <select
-                    className="bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-2 text-sm text-white focus:ring-2 focus:ring-cyan-400 focus:border-transparent"
+                    className="bg-neutral-900 border border-neutral-700 rounded-xl px-4 py-2 text-sm text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     value={eventFilter}
                     onChange={(e) => setEventFilter(e.target.value)}
                   >
@@ -1058,7 +1058,7 @@ export function AdminView() {
                 </div>
               </div>
               {loadingEvents ? (
-                <div className="flex justify-center py-12"><Loader2 className="animate-spin text-cyan-400" size={32} /></div>
+                <div className="flex justify-center py-12"><Loader2 className="animate-spin text-blue-500" size={32} /></div>
               ) : (
                 <div className="space-y-2">
                   {filteredEvents.map((e: any) => (
@@ -1094,7 +1094,7 @@ export function AdminView() {
                           size="sm"
                           onClick={() => handleCopyAsNew(e)}
                           title="Copy"
-                          className="text-cyan-400 hover:bg-cyan-400/10"
+                          className="text-blue-500 hover:bg-blue-500/10"
                         >
                           <Copy size={16} />
                         </Button>
@@ -1180,7 +1180,7 @@ export function AdminView() {
           {activeSubTab === 'system' && (
             <Card className="text-center py-12 space-y-6 bg-neutral-800/30 border-neutral-700">
               <div className="w-20 h-20 bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Settings className="text-cyan-400" size={32} />
+                <Settings className="text-blue-500" size={32} />
               </div>
               <h3 className="text-xl font-bold">System Utilities</h3>
               <p className="text-neutral-400 max-w-md mx-auto">Perform administrative tasks and manage system data.</p>

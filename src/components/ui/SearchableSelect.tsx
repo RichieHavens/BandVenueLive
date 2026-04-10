@@ -62,7 +62,7 @@ export function SearchableSelect({
           onClick={() => setIsOpen(!isOpen)}
           className={cn(
             "w-full flex items-center justify-between bg-neutral-900 border border-neutral-800 p-3 rounded-xl text-left transition-all",
-            isOpen ? "ring-2 ring-cyan-500 border-transparent" : "hover:border-neutral-700",
+            isOpen ? "ring-2 ring-blue-600 border-transparent" : "hover:border-neutral-700",
             disabled && "opacity-50 cursor-not-allowed"
           )}
         >
@@ -105,7 +105,7 @@ export function SearchableSelect({
                     }}
                     className={cn(
                       "w-full text-left px-4 py-3 text-sm hover:bg-neutral-800 transition-colors",
-                      value === opt.id && "bg-cyan-500/10 text-cyan-400 font-medium"
+                      value === opt.id && "bg-blue-600/10 text-blue-500 font-medium"
                     )}
                   >
                     {opt.name}

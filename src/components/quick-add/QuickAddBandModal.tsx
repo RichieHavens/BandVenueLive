@@ -27,6 +27,7 @@ export default function QuickAddBandModal({ isOpen, onClose, onSuccess }: QuickA
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [country, setCountry] = useState<'US' | 'CA'>('US');
+  const [geography, setGeography] = useState<'Local' | 'Regional' | 'National'>('Local');
   const [saving, setSaving] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState(false);
 
@@ -52,6 +53,7 @@ export default function QuickAddBandModal({ isOpen, onClose, onSuccess }: QuickA
         city,
         state,
         country,
+        geography,
         // manager_id: user?.id, // Removed default manager_id
         is_confirmed: false,
         is_published: false,
@@ -70,6 +72,7 @@ export default function QuickAddBandModal({ isOpen, onClose, onSuccess }: QuickA
         setCity('');
         setState('');
         setCountry('US');
+        setGeography('Local');
       } else if (action === 'open') {
         setSelectedBandId(data.id);
         setActiveTab('my-band');
@@ -89,7 +92,7 @@ export default function QuickAddBandModal({ isOpen, onClose, onSuccess }: QuickA
       <Card className="w-full max-w-md flex flex-col shadow-2xl p-0 overflow-hidden">
         <div className="flex items-center justify-between p-4 border-b border-neutral-800">
           <h3 className="text-lg font-bold">Quick Add Band</h3>
-          <button onClick={onClose} className="p-1 text-neutral-400 hover:text-cyan-400 rounded-full">
+          <button onClick={onClose} className="p-1 text-neutral-400 hover:text-blue-500 rounded-full">
             <X size={18} />
           </button>
         </div>
@@ -111,6 +114,18 @@ export default function QuickAddBandModal({ isOpen, onClose, onSuccess }: QuickA
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <Input label="City" value={city} onChange={(e) => setCity(e.target.value)} className="py-1.5 px-3" />
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">Geography</label>
+                  <select
+                    value={geography}
+                    onChange={(e) => setGeography(e.target.value as 'Local' | 'Regional' | 'National')}
+                    className="w-full bg-neutral-950 border border-neutral-700 rounded-xl py-2 px-3 text-white focus:ring-2 focus:ring-blue-600 outline-none transition-all placeholder:text-neutral-600 text-sm"
+                  >
+                    <option value="Local">Local</option>
+                    <option value="Regional">Regional</option>
+                    <option value="National">National</option>
+                  </select>
+                </div>
                 <SearchableSelect
                   label="State/Province"
                   value={state}
@@ -126,7 +141,7 @@ export default function QuickAddBandModal({ isOpen, onClose, onSuccess }: QuickA
               <textarea 
                 value={description} 
                 onChange={(e) => setDescription(e.target.value)} 
-                className="w-full bg-neutral-950 border border-neutral-700 rounded-xl py-2 px-3 text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all placeholder:text-neutral-600 text-sm"
+                className="w-full bg-neutral-950 border border-neutral-700 rounded-xl py-2 px-3 text-white focus:ring-2 focus:ring-blue-600 outline-none transition-all placeholder:text-neutral-600 text-sm"
                 rows={2}
               />
             </div>

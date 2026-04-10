@@ -79,7 +79,7 @@ export default function RolePersonalizedHeader({ pageId }: RolePersonalizedHeade
                 {soundbites.map((sb) => (
                   <div 
                     key={sb.id}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-600/10 border border-red-600/20 rounded-full text-red-500 text-xs font-bold uppercase tracking-widest"
+                    className="flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/20 rounded-full text-amber-500 text-xs font-bold uppercase tracking-widest"
                   >
                     <Info size={14} />
                     {sb.content_text}

@@ -19,7 +19,7 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
       >
         <button 
           onClick={onClose}
-          className="absolute top-6 right-6 text-neutral-400 hover:text-cyan-400 transition-colors"
+          className="absolute top-6 right-6 text-neutral-400 hover:text-blue-500 transition-colors"
         >
           <X size={20} />
         </button>

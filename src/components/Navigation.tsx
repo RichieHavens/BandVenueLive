@@ -76,13 +76,12 @@ export default function Navigation() {
         <div className="hidden md:flex items-center shrink-0 mr-4">
           <button 
             onClick={() => handleTabChange('events')}
-            className="h-14 w-auto flex items-center cursor-pointer hover:opacity-80 transition-opacity"
+            className="flex items-center cursor-pointer hover:opacity-80 transition-opacity"
           >
             <img 
-              src="/bandvenue_transparent.png" 
+              src="/bandvenue_nav_logo_transparent.png" 
               alt="BandVenue Logo" 
-              className="h-full w-auto object-contain max-w-full"
-              referrerPolicy="no-referrer"
+              className="h-10 w-auto object-contain"
             />
           </button>
         </div>
@@ -96,20 +95,22 @@ export default function Navigation() {
                 key={tab.id}
                 onClick={() => handleTabChange(tab.id)}
                 className={cn(
-                  "group relative flex flex-col items-center justify-center w-16 h-full gap-1 rounded-xl transition-all shrink-0 focus-visible:outline-none",
+                  "group relative flex flex-col items-center justify-center w-16 h-full transition-all shrink-0 focus-visible:outline-none",
                   isActive 
-                    ? 'text-cyan-400' 
+                    ? 'text-blue-500' 
                     : 'text-neutral-500 hover:text-neutral-300'
                 )}
               >
-                <tab.icon size={22} className={cn("transition-all duration-200", isActive ? 'scale-110' : 'group-hover:scale-110')} strokeWidth={isActive ? 2.5 : 2} />
-                <span className={cn("text-[10px] font-bold tracking-wide transition-colors", isActive ? 'text-cyan-400' : 'text-neutral-500')}>{tab.label}</span>
-                {isActive && (
-                  <motion.div 
-                    layoutId="activeNavTab"
-                    className="absolute -top-2 md:-bottom-[21px] md:top-auto left-1/2 -translate-x-1/2 w-8 h-1 bg-cyan-400 rounded-full shadow-[0_0_8px_rgba(34,211,238,0.5)]"
-                  />
-                )}
+                <div className="flex flex-col items-center gap-1 relative">
+                  <tab.icon size={22} className={cn("transition-all duration-200", isActive ? 'scale-110' : 'group-hover:scale-110')} strokeWidth={isActive ? 2.5 : 2} />
+                  <span className={cn("text-[10px] font-bold tracking-wide transition-colors", isActive ? 'text-blue-500' : 'text-neutral-500')}>{tab.label}</span>
+                  {isActive && (
+                    <motion.div 
+                      layoutId="activeNavTab"
+                      className="absolute -bottom-2.5 left-1/2 -translate-x-1/2 w-6 h-1 bg-blue-600 rounded-full shadow-[0_0_8px_rgba(37,99,235,0.5)]"
+                    />
+                  )}
+                </div>
               </button>
             );
           })}
@@ -120,7 +121,7 @@ export default function Navigation() {
               <SheetTrigger render={
                 <button className={cn(
                   "group relative flex flex-col items-center justify-center w-full h-full gap-1 rounded-xl transition-all shrink-0 focus-visible:outline-none",
-                  (overflowManagementTabs.some(t => t.id === activeTab) || overflowDiscoveryTabs.some(t => t.id === activeTab)) ? 'text-cyan-400' : 'text-neutral-500 hover:text-neutral-300'
+                  (overflowManagementTabs.some(t => t.id === activeTab) || overflowDiscoveryTabs.some(t => t.id === activeTab)) ? 'text-blue-500' : 'text-neutral-500 hover:text-neutral-300'
                 )}>
                   <Menu size={22} className="transition-all duration-200 group-hover:scale-110" strokeWidth={2} />
                   <span className="text-[10px] font-bold tracking-wide">Menu</span>
@@ -146,15 +147,15 @@ export default function Navigation() {
                             className={cn(
                               "w-full flex items-center justify-between px-4 py-3.5 rounded-2xl border transition-all",
                               activeRole === role 
-                                ? 'bg-cyan-500/10 border-cyan-500/30 text-white' 
+                                ? 'bg-blue-600/10 border-blue-600/30 text-white' 
                                 : 'bg-neutral-900/50 border-neutral-800/50 text-neutral-400 hover:bg-neutral-800'
                             )}
                           >
                             <div className="flex items-center gap-3">
-                              <HardHat size={18} className={activeRole === role ? 'text-cyan-400' : 'text-neutral-500'} />
+                              <HardHat size={18} className={activeRole === role ? 'text-blue-500' : 'text-neutral-500'} />
                               <span className="text-sm font-bold tracking-wide">{roleLabels[role] || role}</span>
                             </div>
-                            {activeRole === role && <CheckCircle size={18} className="text-cyan-400" />}
+                            {activeRole === role && <CheckCircle size={18} className="text-blue-500" />}
                           </button>
                         ))}
                       </div>
@@ -177,7 +178,7 @@ export default function Navigation() {
                                 : 'bg-neutral-900/50 border-neutral-800/50 text-neutral-400 hover:bg-neutral-800'
                             )}
                           >
-                            <tab.icon size={20} className={activeTab === tab.id ? 'text-cyan-400' : 'text-neutral-500'} />
+                            <tab.icon size={20} className={activeTab === tab.id ? 'text-blue-500' : 'text-neutral-500'} />
                             <span className="text-sm font-bold tracking-wide">{tab.label}</span>
                           </button>
                         ))}
@@ -201,7 +202,7 @@ export default function Navigation() {
                                 : 'bg-neutral-900/50 border-neutral-800/50 text-neutral-400 hover:bg-neutral-800'
                             )}
                           >
-                            <tab.icon size={20} className={activeTab === tab.id ? 'text-cyan-400' : 'text-neutral-500'} />
+                            <tab.icon size={20} className={activeTab === tab.id ? 'text-blue-500' : 'text-neutral-500'} />
                             <span className="text-sm font-bold tracking-wide">{tab.label}</span>
                           </button>
                         ))}
@@ -230,7 +231,7 @@ export default function Navigation() {
                     ) : (
                       <button 
                         onClick={() => handleTabChange('login')}
-                        className="w-full flex items-center gap-3 px-4 py-4 rounded-2xl bg-cyan-500 hover:bg-cyan-400 text-white transition-colors shadow-lg shadow-cyan-500/20"
+                        className="w-full flex items-center gap-3 px-4 py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white transition-colors shadow-lg shadow-blue-600/20"
                       >
                         <UserCircle size={20} />
                         <span className="text-sm font-bold tracking-wide">Login / Sign Up</span>
@@ -252,12 +253,12 @@ export default function Navigation() {
                 className={cn(
                   "flex items-center gap-2.5 px-4 py-2 rounded-xl border transition-all",
                   isRoleSwitcherOpen
-                    ? 'bg-neutral-800 border-cyan-400 text-white'
-                    : 'bg-neutral-900 border-neutral-700 text-neutral-300 hover:border-cyan-400/50'
+                    ? 'bg-neutral-800 border-blue-600 text-white'
+                    : 'bg-neutral-900 border-neutral-700 text-neutral-300 hover:border-blue-600/50'
                 )}
                 title="What hat are you wearing now?"
               >
-                <HardHat size={18} className={cn("transition-colors duration-200", isRoleSwitcherOpen ? 'text-cyan-400' : 'text-neutral-400')} />
+                <HardHat size={18} className={cn("transition-colors duration-200", isRoleSwitcherOpen ? 'text-blue-500' : 'text-neutral-400')} />
                 <div className="flex flex-col items-start leading-none hidden md:flex">
                   <span className="text-[9px] font-black uppercase tracking-tighter opacity-70">Active Role</span>
                   <span className="text-[11px] font-bold uppercase tracking-widest">
@@ -297,10 +298,10 @@ export default function Navigation() {
                             )}
                           >
                             <div className="flex items-center gap-3">
-                              <HardHat size={14} className={cn("transition-colors duration-200", activeRole === role ? 'text-cyan-400' : 'text-neutral-400')} />
+                              <HardHat size={14} className={cn("transition-colors duration-200", activeRole === role ? 'text-blue-500' : 'text-neutral-400')} />
                               <span className="text-xs font-bold uppercase tracking-wider">{roleLabels[role] || role}</span>
                             </div>
-                            {activeRole === role && <CheckCircle size={14} className="text-cyan-400" />}
+                            {activeRole === role && <CheckCircle size={14} className="text-blue-500" />}
                           </button>
                         ))}
                       </div>
@@ -367,7 +368,7 @@ export default function Navigation() {
 
           <button 
             onClick={() => setIsAboutOpen(true)}
-            className="p-2 text-neutral-400 hover:text-cyan-400 hover:bg-neutral-800 rounded-lg transition-all"
+            className="p-2 text-neutral-400 hover:text-blue-500 hover:bg-neutral-800 rounded-lg transition-all"
             title="About BandVenue"
           >
             <Info size={20} />
@@ -376,7 +377,7 @@ export default function Navigation() {
           {user ? (
             <button 
               onClick={() => handleTabChange('logout')}
-              className="hidden md:flex items-center gap-2 px-3 py-2 text-neutral-400 hover:text-cyan-400 hover:bg-neutral-800 rounded-xl transition-all border border-transparent"
+              className="hidden md:flex items-center gap-2 px-3 py-2 text-neutral-400 hover:text-blue-500 hover:bg-neutral-800 rounded-xl transition-all border border-transparent"
               title="Logout"
             >
               <LogOut size={18} />
@@ -385,7 +386,7 @@ export default function Navigation() {
           ) : (
             <button 
               onClick={() => handleTabChange('login')}
-              className="hidden md:flex items-center gap-2 px-3 py-2 text-neutral-400 hover:text-cyan-400 hover:bg-neutral-800 rounded-xl transition-all border border-transparent"
+              className="hidden md:flex items-center gap-2 px-3 py-2 text-neutral-400 hover:text-blue-500 hover:bg-neutral-800 rounded-xl transition-all border border-transparent"
               title="Login"
             >
               <UserCircle size={18} />
