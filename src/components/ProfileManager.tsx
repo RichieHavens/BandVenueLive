@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../AuthContext';
 import { UserRole, MusicianProfile } from '../types';
-import { Save, Loader2, User, Mail, Shield, Check, Phone, MapPin, Globe, Video, Trash2, Settings, Music, Camera, Eye, Lock, Edit2, X } from 'lucide-react';
+import { Save, Loader2, User, Mail, Shield, Check, Phone, MapPin, Globe, Video, Trash2, Settings, Music, Camera, Eye, Lock, Edit2, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatPhoneNumber } from '../lib/phoneFormatter';
 import { US_STATES, CA_PROVINCES, AddressParts, formatAddress, parseAddress, validateZipForState } from '../lib/geo';
 import { handleSupabaseError, OperationType } from '../lib/error-handler';
@@ -13,7 +13,10 @@ import { UploadedImageSet } from '../lib/imageUtils';
 import ProfilePreviewModal from './ProfilePreviewModal';
 import { Card } from './ui/Card';
 import { Input } from './ui/Input';
+import { Textarea } from './ui/Textarea';
 import { Button } from './ui/Button';
+import { cn } from '../lib/utils';
+import { SearchableSelect } from './ui/SearchableSelect';
 
 type Tab = 'account' | 'musician' | 'security';
 
@@ -62,6 +65,29 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+  // Section toggles for mobile progressive disclosure
+  const [expandedSection, setExpandedSection] = useState<string>('basic');
+
+  const toggleSection = (section: string) => {
+    setExpandedSection(expandedSection === section ? '' : section);
+  };
+
+  const SectionHeader = ({ id, title, icon: Icon }: { id: string, title: string, icon: any }) => (
+    <button
+      type="button"
+      onClick={() => toggleSection(id)}
+      className="w-full flex items-center justify-between p-4 bg-neutral-900 border border-neutral-800 rounded-2xl hover:bg-neutral-800 transition-colors"
+    >
+      <div className="flex items-center gap-3">
+        <div className="p-2 bg-neutral-800 rounded-xl text-red-500">
+          <Icon size={20} />
+        </div>
+        <span className="font-bold text-white">{title}</span>
+      </div>
+      {expandedSection === id ? <ChevronUp size={20} className="text-neutral-500" /> : <ChevronDown size={20} className="text-neutral-500" />}
+    </button>
+  );
 
   async function logUpdate(changes: any) {
     try {
@@ -583,460 +609,464 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
       ) : (
         <form onSubmit={handleSave} className="space-y-8">
           {activeTab === 'account' ? (
-          <div className="space-y-8">
+          <div className="space-y-4">
             {/* Basic Info */}
-            <div className="bg-neutral-900 border border-neutral-800 rounded-[2.5rem] p-8 md:p-10 space-y-8">
-              <div className="flex flex-col md:flex-row gap-8 items-start">
-                {/* Avatar Upload */}
-                <div className="flex flex-col items-center gap-4">
-                  <div className="w-32 h-32 rounded-full bg-neutral-800 border-2 border-neutral-700 overflow-hidden relative group">
-                    {avatarUrl ? (
-                      <>
-                        <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                        <Button
-                          type="button"
-                          variant="danger"
-                          size="sm"
-                          onClick={() => setAvatarUrl('')}
-                          className="absolute top-2 right-2 p-1.5 shadow-lg z-10 opacity-0 group-hover:opacity-100"
-                          title="Delete Profile Photo"
-                        >
-                          <Trash2 size={14} className="text-red-500" />
-                        </Button>
-                      </>
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-neutral-600">
-                        <User size={48} className="text-neutral-400" />
-                      </div>
-                    )}
-                    <ImageUpload 
-                      type="logo"
-                      onUploadComplete={(urlSet) => {
-                        if (typeof urlSet !== 'string') {
-                          // Use the logo (400x400) image for the avatar
-                          setAvatarUrl(urlSet.logo || urlSet.original);
-                        }
-                      }}
-                      className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                    >
-                      <Camera size={24} className="text-white" />
-                    </ImageUpload>
-                  </div>
-                  <span className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Profile Photo</span>
-                </div>
-
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
-                  <div className="space-y-2">
-                    <Input
-                      label="First Name"
-                      type="text"
-                      value={firstName || ''}
-                      onChange={(e) => setFirstName(e.target.value)}
-                      placeholder="John"
-                      icon={<User size={18} />}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Input
-                      label="Last Name"
-                      type="text"
-                      value={lastName || ''}
-                      onChange={(e) => setLastName(e.target.value)}
-                      placeholder="Doe"
-                      icon={<User size={18} />}
-                    />
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Email Address</label>
-                    <div className="relative">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
-                      <input
-                        type="email"
-                        value={isEditingEmail ? newEmail : (user?.email || '')}
-                        onChange={(e) => setNewEmail(e.target.value)}
-                        disabled={!isEditingEmail || updatingEmail}
-                        className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 pl-12 pr-24 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all disabled:bg-neutral-800/50 disabled:text-neutral-400 disabled:cursor-not-allowed"
-                        placeholder="new-email@example.com"
-                      />
-                      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                        {isEditingEmail ? (
+            <div className="space-y-4">
+              <SectionHeader id="basic" title="Basic Info" icon={User} />
+              {expandedSection === 'basic' && (
+                <div className="p-4 sm:p-6 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-6 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex flex-col md:flex-row gap-8 items-start">
+                    {/* Avatar Upload */}
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="w-32 h-32 rounded-full bg-neutral-800 border-2 border-neutral-700 overflow-hidden relative group">
+                        {avatarUrl ? (
                           <>
-                            <button
+                            <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                            <Button
                               type="button"
-                              onClick={handleEmailChange}
-                              disabled={updatingEmail || !newEmail || newEmail === user?.email}
-                              className="p-2 text-green-500 hover:bg-green-500/10 rounded-lg transition-all disabled:opacity-50"
+                              variant="danger"
+                              size="sm"
+                              onClick={() => setAvatarUrl('')}
+                              className="absolute top-2 right-2 p-1.5 shadow-lg z-10 opacity-0 group-hover:opacity-100"
+                              title="Delete Profile Photo"
                             >
-                              {updatingEmail ? <Loader2 className="animate-spin" size={18} /> : <Check size={18} />}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => { setIsEditingEmail(false); setNewEmail(''); }}
-                              className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
-                            >
-                              <X size={18} />
-                            </button>
+                              <Trash2 size={14} className="text-red-500" />
+                            </Button>
                           </>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => { setIsEditingEmail(true); setNewEmail(user?.email || ''); }}
-                            className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-700 rounded-lg transition-all"
-                          >
-                            <Edit2 size={18} />
-                          </button>
+                          <div className="w-full h-full flex items-center justify-center text-neutral-600">
+                            <User size={48} className="text-neutral-400" />
+                          </div>
                         )}
+                        <ImageUpload 
+                          type="logo"
+                          onUploadComplete={(urlSet) => {
+                            if (typeof urlSet !== 'string') {
+                              // Use the logo (400x400) image for the avatar
+                              setAvatarUrl(urlSet.logo || urlSet.original);
+                            }
+                          }}
+                          className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                        >
+                          <Camera size={24} className="text-white" />
+                        </ImageUpload>
+                      </div>
+                      <span className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Profile Photo</span>
+                    </div>
+
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+                      <div className="space-y-2">
+                        <Input
+                          label="First Name"
+                          type="text"
+                          value={firstName || ''}
+                          onChange={(e) => setFirstName(e.target.value)}
+                          placeholder="John"
+                          icon={<User size={18} className="text-neutral-500" />}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Input
+                          label="Last Name"
+                          type="text"
+                          value={lastName || ''}
+                          onChange={(e) => setLastName(e.target.value)}
+                          placeholder="Doe"
+                          icon={<User size={18} className="text-neutral-500" />}
+                        />
+                      </div>
+                      <div className="space-y-2 md:col-span-2">
+                        <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Email Address</label>
+                        <div className="relative">
+                          <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
+                          <input
+                            type="email"
+                            value={isEditingEmail ? newEmail : (user?.email || '')}
+                            onChange={(e) => setNewEmail(e.target.value)}
+                            disabled={!isEditingEmail || updatingEmail}
+                            className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 pl-12 pr-24 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all disabled:bg-neutral-800/50 disabled:text-neutral-400 disabled:cursor-not-allowed"
+                            placeholder="new-email@example.com"
+                          />
+                          <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                            {isEditingEmail ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={handleEmailChange}
+                                  disabled={updatingEmail || !newEmail || newEmail === user?.email}
+                                  className="p-2 text-green-500 hover:bg-green-500/10 rounded-lg transition-all disabled:opacity-50"
+                                >
+                                  {updatingEmail ? <Loader2 className="animate-spin" size={18} /> : <Check size={18} />}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => { setIsEditingEmail(false); setNewEmail(''); }}
+                                  className="p-2 text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
+                                >
+                                  <X size={18} />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => { setIsEditingEmail(true); setNewEmail(user?.email || ''); }}
+                                className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-700 rounded-lg transition-all"
+                              >
+                                <Edit2 size={18} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Input
+                          label="Phone Number"
+                          type="tel"
+                          value={accountPhone || ''}
+                          onChange={(e) => setAccountPhone(formatPhoneNumber(e.target.value))}
+                          placeholder="(555) 000-0000"
+                          icon={<Phone size={18} className={accountPhone && !validatePhone(accountPhone) ? 'text-red-500' : 'text-neutral-500'} />}
+                          className={accountPhone && !validatePhone(accountPhone) ? 'border-red-500/50' : ''}
+                        />
                       </div>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Phone Number</label>
-                    <div className="relative">
-                      <Phone className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${accountPhone && !validatePhone(accountPhone) ? 'text-red-500' : 'text-neutral-400'}`} size={18} />
-                      <input
-                        type="tel"
-                        value={accountPhone || ''}
-                        onChange={(e) => setAccountPhone(formatPhoneNumber(e.target.value))}
-                        className={`w-full bg-neutral-800 border rounded-2xl py-3 pl-12 pr-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all ${
-                          accountPhone && !validatePhone(accountPhone) ? 'border-red-500/50' : 'border-neutral-700'
-                        }`}
-                        placeholder="(555) 000-0000"
-                      />
-                    </div>
-                  </div>
                 </div>
-              </div>
+              )}
+            </div>
               
-              {/* Address Section */}
-              <div className="space-y-4 md:col-span-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Address Information</label>
-                  <div className="flex bg-neutral-800 p-1 rounded-xl border border-neutral-700">
-                    <button
-                      type="button"
-                      onClick={() => setAddressParts({ ...addressParts, country: 'US', state: '' })}
-                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                        addressParts.country === 'US' ? 'bg-red-600 text-white' : 'text-neutral-400 hover:text-neutral-300'
-                      }`}
-                    >
-                      USA
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAddressParts({ ...addressParts, country: 'CA', state: '' })}
-                      className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                        addressParts.country === 'CA' ? 'bg-red-600 text-white' : 'text-neutral-400 hover:text-neutral-300'
-                      }`}
-                    >
-                      CANADA
-                    </button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="md:col-span-2 space-y-2">
-                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">Street Address</label>
-                    <input
-                      type="text"
-                      value={addressParts.street || ''}
-                      onChange={(e) => setAddressParts({ ...addressParts, street: e.target.value })}
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all"
-                      placeholder="123 Music Ave"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">City</label>
-                    <input
-                      type="text"
-                      value={addressParts.city || ''}
-                      onChange={(e) => setAddressParts({ ...addressParts, city: e.target.value })}
-                      className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all"
-                      placeholder="Nashville"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">{addressParts.country === 'US' ? 'State' : 'Province'}</label>
-                      <select
-                        value={addressParts.state || ''}
-                        onChange={(e) => setAddressParts({ ...addressParts, state: e.target.value })}
-                        className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all appearance-none"
+            {/* Address Section */}
+            <div className="space-y-4">
+              <SectionHeader id="address" title="Address Information" icon={MapPin} />
+              {expandedSection === 'address' && (
+                <div className="p-4 sm:p-6 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-4 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Country</label>
+                    <div className="flex bg-neutral-800 p-1 rounded-xl border border-neutral-700">
+                      <button
+                        type="button"
+                        onClick={() => setAddressParts({ ...addressParts, country: 'US', state: '' })}
+                        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          addressParts.country === 'US' ? 'bg-red-600 text-white' : 'text-neutral-400 hover:text-neutral-300'
+                        }`}
                       >
-                        <option value="">Select...</option>
-                        {(addressParts.country === 'US' ? US_STATES : CA_PROVINCES).map((item) => (
-                          <option key={item.code} value={item.code}>{item.name}</option>
-                        ))}
-                      </select>
+                        USA
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAddressParts({ ...addressParts, country: 'CA', state: '' })}
+                        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          addressParts.country === 'CA' ? 'bg-red-600 text-white' : 'text-neutral-400 hover:text-neutral-300'
+                        }`}
+                      >
+                        CANADA
+                      </button>
                     </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">Zip/Postal</label>
-                      <input
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2 space-y-2">
+                      <Input
+                        label="Street Address"
                         type="text"
-                        value={addressParts.zip || ''}
-                        onChange={(e) => setAddressParts({ ...addressParts, zip: e.target.value })}
-                        className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all"
-                        placeholder={addressParts.country === 'US' ? '37201' : 'M5V 2T6'}
+                        value={addressParts.street || ''}
+                        onChange={(e) => setAddressParts({ ...addressParts, street: e.target.value })}
+                        placeholder="123 Music Ave"
                       />
                     </div>
+                    <div className="space-y-2">
+                      <Input
+                        label="City"
+                        type="text"
+                        value={addressParts.city || ''}
+                        onChange={(e) => setAddressParts({ ...addressParts, city: e.target.value })}
+                        placeholder="Nashville"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <SearchableSelect
+                        label={addressParts.country === 'US' ? 'State' : 'Province'}
+                        value={addressParts.state || ''}
+                        onChange={(val) => setAddressParts({ ...addressParts, state: val })}
+                        options={(addressParts.country === 'US' ? US_STATES : CA_PROVINCES).map(s => ({ id: s.code, name: s.name }))}
+                        placeholder="Select..."
+                      />
+                      <div className="space-y-2">
+                        <Input
+                          label="Zip/Postal"
+                          type="text"
+                          value={addressParts.zip || ''}
+                          onChange={(e) => setAddressParts({ ...addressParts, zip: e.target.value })}
+                          placeholder={addressParts.country === 'US' ? '37201' : 'M5V 2T6'}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
-              {/* Current System Roles Section */}
-            <div className="bg-neutral-900 border border-neutral-800 rounded-[2.5rem] p-8 md:p-10 space-y-8">
-              <div className="flex items-center gap-3 mb-2">
-                <Shield className="text-red-500" size={24} />
-                <h3 className="text-xl font-bold text-white">Current System Roles</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {managedBands.length > 0 && (
-                  <div className="p-4 bg-neutral-800/50 rounded-2xl border border-neutral-700">
-                    <p className="text-sm font-bold text-white">Manager of {managedBands.length} band{managedBands.length > 1 ? 's' : ''}</p>
-                    <p className="text-xs text-neutral-400">{managedBands.map(b => b.name).join(', ')}</p>
+            {/* Current System Roles Section */}
+            <div className="space-y-4">
+              <SectionHeader id="roles" title="Current System Roles" icon={Shield} />
+              {expandedSection === 'roles' && (
+                <div className="p-4 sm:p-6 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-4 animate-in fade-in slide-in-from-top-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {managedBands.length > 0 && (
+                      <div className="p-4 bg-neutral-800/50 rounded-2xl border border-neutral-700">
+                        <p className="text-sm font-bold text-white">Manager of {managedBands.length} band{managedBands.length > 1 ? 's' : ''}</p>
+                        <p className="text-xs text-neutral-400">{managedBands.map(b => b.name).join(', ')}</p>
+                      </div>
+                    )}
+                    {managedVenues.length > 0 && (
+                      <div className="p-4 bg-neutral-800/50 rounded-2xl border border-neutral-700">
+                        <p className="text-sm font-bold text-white">Manager of {managedVenues.length} venue{managedVenues.length > 1 ? 's' : ''}</p>
+                        <p className="text-xs text-neutral-400">{managedVenues.map(v => v.name).join(', ')}</p>
+                      </div>
+                    )}
+                    {managedBands.length === 0 && managedVenues.length === 0 && (
+                      <p className="text-sm text-neutral-400">No system roles currently assigned.</p>
+                    )}
                   </div>
-                )}
-                {managedVenues.length > 0 && (
-                  <div className="p-4 bg-neutral-800/50 rounded-2xl border border-neutral-700">
-                    <p className="text-sm font-bold text-white">Manager of {managedVenues.length} venue{managedVenues.length > 1 ? 's' : ''}</p>
-                    <p className="text-xs text-neutral-400">{managedVenues.map(v => v.name).join(', ')}</p>
-                  </div>
-                )}
-                {managedBands.length === 0 && managedVenues.length === 0 && (
-                  <p className="text-sm text-neutral-400">No system roles currently assigned.</p>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
             {/* Role Request Section */}
-              <div className="bg-neutral-900 border border-neutral-800 rounded-[2.5rem] p-8 md:p-10 space-y-6">
-                <div className="flex items-center gap-3 mb-2">
-                  <Shield className="text-red-500" size={24} />
-                  <h3 className="text-xl font-bold text-white">Request Business Access</h3>
-                </div>
-                <p className="text-neutral-400 text-sm">Select the roles you would like to request access for. An admin will review your request.</p>
+            <div className="space-y-4">
+              <SectionHeader id="request" title="Request Business Access" icon={Shield} />
+              {expandedSection === 'request' && (
+                <div className="p-4 sm:p-6 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-6 animate-in fade-in slide-in-from-top-2">
+                  <p className="text-neutral-400 text-sm">Select the roles you would like to request access for. An admin will review your request.</p>
 
-                {(['musician'] as const).map((role) => (
-                  <div key={role} className="space-y-4 p-6 bg-neutral-800/30 border border-neutral-700/50 rounded-3xl">
-                    <div className="flex items-center justify-between">
-                      <label className="text-sm font-bold text-white uppercase tracking-widest">I am also an active {role.replace('_', ' ')}</label>
-                      <div className="flex items-center gap-4">
-                        <Button
-                          type="button"
-                          variant={roleRequests[role].active ? 'primary' : 'secondary'}
-                          size="sm"
-                          onClick={() => setRoleRequests(prev => ({ ...prev, [role]: { ...prev[role], active: true } }))}
-                        >
-                          Y
-                        </Button>
-                        <Button
-                          type="button"
-                          variant={!roleRequests[role].active ? 'primary' : 'secondary'}
-                          size="sm"
-                          onClick={() => setRoleRequests(prev => ({ ...prev, [role]: { ...prev[role], active: false } }))}
-                        >
-                          N
-                        </Button>
+                  {(['musician'] as const).map((role) => (
+                    <div key={role} className="space-y-4 p-6 bg-neutral-800/30 border border-neutral-700/50 rounded-3xl">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-bold text-white uppercase tracking-widest">I am also an active {role.replace('_', ' ')}</label>
+                        <div className="flex items-center gap-4">
+                          <Button
+                            type="button"
+                            variant={roleRequests[role].active ? 'primary' : 'secondary'}
+                            size="sm"
+                            onClick={() => setRoleRequests(prev => ({ ...prev, [role]: { ...prev[role], active: true } }))}
+                          >
+                            Y
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={!roleRequests[role].active ? 'primary' : 'secondary'}
+                            size="sm"
+                            onClick={() => setRoleRequests(prev => ({ ...prev, [role]: { ...prev[role], active: false } }))}
+                          >
+                            N
+                          </Button>
+                        </div>
+                      </div>
+                      {roleRequests[role].active && (
+                        <Textarea
+                          value={roleRequests[role].details}
+                          onChange={(e) => setRoleRequests(prev => ({ ...prev, [role]: { ...prev[role], details: e.target.value } }))}
+                          placeholder={`Tell us more about your role as a ${role.replace('_', ' ')}...`}
+                          rows={3}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Account Roles Section */}
+            <div className="space-y-4">
+              <SectionHeader id="account_roles" title="Account Roles" icon={Settings} />
+              {expandedSection === 'account_roles' && (
+                <div className="p-4 sm:p-6 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-6 animate-in fade-in slide-in-from-top-2">
+                  <div className="p-6 bg-neutral-800/30 border border-neutral-700/50 rounded-3xl">
+                    <p className="text-xs text-neutral-400 leading-relaxed italic">
+                      Note: To become a <span className="text-white font-bold">Venue Manager</span>, <span className="text-white font-bold">Band Manager</span>, or <span className="text-white font-bold">Musician</span>, please contact the site administrator for approval and account linking.
+                    </p>
+                  </div>
+
+                  {selectedRoles.length > 1 && (
+                    <div className="p-6 bg-neutral-800/50 border border-neutral-700 rounded-3xl space-y-4">
+                      <div className="flex items-center gap-3">
+                        <Settings className="text-red-500" size={20} />
+                        <h4 className="font-bold text-white">Default Session Role</h4>
+                      </div>
+                      <p className="text-xs text-neutral-400">Choose which role should be active by default when you log in. You can always switch roles using the switcher in the navigation bar.</p>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedRoles.map((roleId) => {
+                          const roleInfo = publicRoles.find(pr => pr.id === roleId) || (roleId === 'admin' ? { label: 'Super Admin' } : { label: roleId.replace('_', ' ') });
+                          return (
+                            <Button
+                              key={roleId}
+                              type="button"
+                              variant={defaultRole === roleId ? 'primary' : 'secondary'}
+                              size="sm"
+                              onClick={() => setDefaultRole(roleId)}
+                            >
+                              {roleInfo.label}
+                            </Button>
+                          );
+                        })}
                       </div>
                     </div>
-                    {roleRequests[role].active && (
-                      <textarea
-                        value={roleRequests[role].details}
-                        onChange={(e) => setRoleRequests(prev => ({ ...prev, [role]: { ...prev[role], details: e.target.value } }))}
-                        className="w-full bg-neutral-950 border border-neutral-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all"
-                        placeholder={`Tell us more about your role as a ${role.replace('_', ' ')}...`}
-                        rows={3}
-                      />
-                    )}
-                  </div>
-                ))}
-              </div>
-            {/* End Role Request Section */}
-
-            {/* Roles Section Removed - Managed by Admin */}
-            <div className="bg-neutral-900 border border-neutral-800 rounded-[2.5rem] p-8 md:p-10 space-y-6">
-              <div className="flex items-center gap-3 mb-2">
-                <Shield className="text-red-500" size={24} />
-                <h3 className="text-xl font-bold text-white">Account Roles</h3>
-              </div>
-              
-              <div className="p-6 bg-neutral-800/30 border border-neutral-700/50 rounded-3xl">
-                <p className="text-xs text-neutral-400 leading-relaxed italic">
-                  Note: To become a <span className="text-white font-bold">Venue Manager</span>, <span className="text-white font-bold">Band Manager</span>, or <span className="text-white font-bold">Musician</span>, please contact the site administrator for approval and account linking.
-                </p>
-              </div>
-
-              {selectedRoles.length > 1 && (
-                <div className="mt-8 p-6 bg-neutral-800/50 border border-neutral-700 rounded-3xl space-y-4">
-                  <div className="flex items-center gap-3">
-                    <Settings className="text-red-500" size={20} />
-                    <h4 className="font-bold text-white">Default Session Role</h4>
-                  </div>
-                  <p className="text-xs text-neutral-400">Choose which role should be active by default when you log in. You can always switch roles using the switcher in the navigation bar.</p>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedRoles.map((roleId) => {
-                      const roleInfo = publicRoles.find(pr => pr.id === roleId) || (roleId === 'admin' ? { label: 'Super Admin' } : { label: roleId.replace('_', ' ') });
-                      return (
-                        <Button
-                          key={roleId}
-                          type="button"
-                          variant={defaultRole === roleId ? 'primary' : 'secondary'}
-                          size="sm"
-                          onClick={() => setDefaultRole(roleId)}
-                        >
-                          {roleInfo.label}
-                        </Button>
-                      );
-                    })}
-                  </div>
+                  )}
                 </div>
               )}
             </div>
           </div>
         ) : (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-[2.5rem] p-8 md:p-10 space-y-8">
-            <h3 className="text-xl font-bold text-white">Musician Details</h3>
-            
-            <div className="md:col-span-2 p-4 bg-neutral-800/50 rounded-2xl border border-neutral-700 flex flex-col gap-4">
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="looking_for_bands"
-                  checked={musicianData.looking_for_bands}
-                  onChange={(e) => setMusicianData({ ...musicianData, looking_for_bands: e.target.checked })}
-                  className="w-5 h-5 rounded border-neutral-700 bg-neutral-800 text-red-500 focus:ring-red-600"
-                />
-                <label htmlFor="looking_for_bands" className="text-sm font-medium text-neutral-200 cursor-pointer">
-                  I am currently looking for bands or events to join
-                </label>
-              </div>
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="open_for_gigs"
-                  checked={musicianData.open_for_gigs}
-                  onChange={(e) => setMusicianData({ ...musicianData, open_for_gigs: e.target.checked })}
-                  className="w-5 h-5 rounded border-neutral-700 bg-neutral-800 text-red-500 focus:ring-red-600"
-                />
-                <label htmlFor="open_for_gigs" className="text-sm font-medium text-neutral-200 cursor-pointer">
-                  I am open for gigs
-                </label>
-              </div>
-            </div>
-
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-red-600/10 border border-red-600/20 p-6 rounded-2xl">
-              <div>
-                <h3 className="text-lg font-bold text-white mb-1">Book Gigs as a Solo Act?</h3>
-                <p className="text-sm text-neutral-400">Generate a Band profile from your musician details so venues can book you.</p>
-              </div>
-              <Button
-                type="button"
-                onClick={handleCreateSoloAct}
-                disabled={saving}
-              >
-                {saving ? <Loader2 className="animate-spin" size={18} /> : <Music size={18} />}
-                Create Solo Act
-              </Button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Musician Phone</label>
-                <div className="relative">
-                  <Phone className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors ${musicianData.phone && !validatePhone(musicianData.phone) ? 'text-red-500' : 'text-neutral-400'}`} size={18} />
-                  <input
-                    type="tel"
-                    value={musicianData.phone || ''}
-                    onChange={(e) => setMusicianData({ ...musicianData, phone: formatPhoneNumber(e.target.value) })}
-                    className={`w-full bg-neutral-800 border rounded-2xl py-3 pl-12 pr-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all ${
-                      musicianData.phone && !validatePhone(musicianData.phone) ? 'border-red-500/50' : 'border-neutral-700'
-                    }`}
-                    placeholder="(555) 000-0000"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Personal Website</label>
-                <div className="relative flex items-center">
-                  <Globe className="absolute left-4 text-neutral-400" size={18} />
-                  <input
-                    type="text"
-                    value={musicianData.website || ''}
-                    onChange={(e) => setMusicianData({ ...musicianData, website: e.target.value })}
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 pl-12 pr-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all"
-                    placeholder="www.yourname.com"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Bio / Description</label>
-                <textarea
-                  rows={4}
-                  value={musicianData.description || ''}
-                  onChange={(e) => setMusicianData({ ...musicianData, description: e.target.value })}
-                  className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl px-4 py-3 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all resize-none"
-                />
-              </div>
-              
-              <div className="md:col-span-2 space-y-4">
-                <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Instruments</label>
-                <div className="flex flex-wrap gap-2">
-                  {['Guitar', 'Bass', 'Drums', 'Vocals', 'Keyboard', 'Saxophone', 'Trumpet', 'Violin'].map((inst) => (
-                    <button
-                      key={inst}
-                      type="button"
-                      onClick={() => {
-                        const current = musicianData.instruments || [];
-                        if (current.includes(inst)) {
-                          setMusicianData({ ...musicianData, instruments: current.filter(i => i !== inst) });
-                        } else {
-                          setMusicianData({ ...musicianData, instruments: [...current, inst] });
-                        }
-                      }}
-                      className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                        (musicianData.instruments || []).includes(inst)
-                          ? 'bg-red-600 text-white'
-                          : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                      }`}
-                    >
-                      {inst}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="md:col-span-2 space-y-4">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Video Links (Up to 5)</label>
-                  <span className="text-xs text-neutral-400">{musicianData.video_links?.length || 0} / 5</span>
-                </div>
-                <div className="space-y-2">
-                  {musicianData.video_links?.map((link, idx) => (
-                    <div key={idx} className="flex gap-2">
-                      <div className="flex-1 bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm text-neutral-300 truncate">{link}</div>
-                      <button
-                        type="button"
-                        onClick={() => setMusicianData({ ...musicianData, video_links: musicianData.video_links?.filter((_, i) => i !== idx) })}
-                        className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
-                      >
-                        <Trash2 size={18} />
-                      </button>
+          <div className="space-y-4">
+            {/* Musician Details Section */}
+            <div className="space-y-4">
+              <SectionHeader id="musician_details" title="Musician Details" icon={Music} />
+              {expandedSection === 'musician_details' && (
+                <div className="p-4 sm:p-6 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-6 animate-in fade-in slide-in-from-top-2">
+                  <div className="p-4 bg-neutral-800/50 rounded-2xl border border-neutral-700 flex flex-col gap-4">
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id="looking_for_bands"
+                        checked={musicianData.looking_for_bands}
+                        onChange={(e) => setMusicianData({ ...musicianData, looking_for_bands: e.target.checked })}
+                        className="w-5 h-5 rounded border-neutral-700 bg-neutral-800 text-red-500 focus:ring-red-600"
+                      />
+                      <label htmlFor="looking_for_bands" className="text-sm font-medium text-neutral-200 cursor-pointer">
+                        I am currently looking for bands or events to join
+                      </label>
                     </div>
-                  ))}
-                  {(musicianData.video_links?.length || 0) < 5 && (
-                    <button
+                    <div className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        id="open_for_gigs"
+                        checked={musicianData.open_for_gigs}
+                        onChange={(e) => setMusicianData({ ...musicianData, open_for_gigs: e.target.checked })}
+                        className="w-5 h-5 rounded border-neutral-700 bg-neutral-800 text-red-500 focus:ring-red-600"
+                      />
+                      <label htmlFor="open_for_gigs" className="text-sm font-medium text-neutral-200 cursor-pointer">
+                        I am open for gigs
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-red-600/10 border border-red-600/20 p-6 rounded-2xl">
+                    <div>
+                      <h3 className="text-lg font-bold text-white mb-1">Book Gigs as a Solo Act?</h3>
+                      <p className="text-sm text-neutral-400">Generate a Band profile from your musician details so venues can book you.</p>
+                    </div>
+                    <Button
                       type="button"
-                      onClick={() => {
-                        const url = prompt('Enter video URL:');
-                        if (url) setMusicianData({ ...musicianData, video_links: [...(musicianData.video_links || []), url] });
-                      }}
-                      className="w-full border border-dashed border-neutral-700 rounded-xl py-3 text-neutral-400 hover:border-red-600 hover:text-red-500 transition-all flex items-center justify-center gap-2"
+                      onClick={handleCreateSoloAct}
+                      disabled={saving}
                     >
-                      <Video size={18} />
-                      <span className="text-sm font-bold uppercase tracking-widest">Add Video Link</span>
-                    </button>
-                  )}
+                      {saving ? <Loader2 className="animate-spin" size={18} /> : <Music size={18} />}
+                      Create Solo Act
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <Input
+                        label="Musician Phone"
+                        type="tel"
+                        value={musicianData.phone || ''}
+                        onChange={(e) => setMusicianData({ ...musicianData, phone: formatPhoneNumber(e.target.value) })}
+                        placeholder="(555) 000-0000"
+                        icon={<Phone size={18} className={musicianData.phone && !validatePhone(musicianData.phone) ? 'text-red-500' : 'text-neutral-500'} />}
+                        className={musicianData.phone && !validatePhone(musicianData.phone) ? 'border-red-500/50' : ''}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Input
+                        label="Personal Website"
+                        type="text"
+                        value={musicianData.website || ''}
+                        onChange={(e) => setMusicianData({ ...musicianData, website: e.target.value })}
+                        placeholder="www.yourname.com"
+                        icon={<Globe size={18} className="text-neutral-500" />}
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Bio / Description</label>
+                      <Textarea
+                        rows={4}
+                        value={musicianData.description || ''}
+                        onChange={(e) => setMusicianData({ ...musicianData, description: e.target.value })}
+                        placeholder="Tell us about your musical journey..."
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
+            </div>
+
+            {/* Instruments & Videos Section */}
+            <div className="space-y-4">
+              <SectionHeader id="musician_media" title="Instruments & Videos" icon={Video} />
+              {expandedSection === 'musician_media' && (
+                <div className="p-4 sm:p-6 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-6 animate-in fade-in slide-in-from-top-2">
+                  <div className="space-y-4">
+                    <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Instruments</label>
+                    <div className="flex flex-wrap gap-2">
+                      {['Guitar', 'Bass', 'Drums', 'Vocals', 'Keyboard', 'Saxophone', 'Trumpet', 'Violin'].map((inst) => (
+                        <button
+                          key={inst}
+                          type="button"
+                          onClick={() => {
+                            const current = musicianData.instruments || [];
+                            if (current.includes(inst)) {
+                              setMusicianData({ ...musicianData, instruments: current.filter(i => i !== inst) });
+                            } else {
+                              setMusicianData({ ...musicianData, instruments: [...current, inst] });
+                            }
+                          }}
+                          className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                            (musicianData.instruments || []).includes(inst)
+                              ? 'bg-red-600 text-white'
+                              : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
+                          }`}
+                        >
+                          {inst}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Video Links (Up to 5)</label>
+                      <span className="text-xs text-neutral-400">{musicianData.video_links?.length || 0} / 5</span>
+                    </div>
+                    <div className="space-y-2">
+                      {musicianData.video_links?.map((link, idx) => (
+                        <div key={idx} className="flex gap-2">
+                          <div className="flex-1 bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm text-neutral-300 truncate">{link}</div>
+                          <button
+                            type="button"
+                            onClick={() => setMusicianData({ ...musicianData, video_links: musicianData.video_links?.filter((_, i) => i !== idx) })}
+                            className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      ))}
+                      {(musicianData.video_links?.length || 0) < 5 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const url = prompt('Enter video URL:');
+                            if (url) setMusicianData({ ...musicianData, video_links: [...(musicianData.video_links || []), url] });
+                          }}
+                          className="w-full border border-dashed border-neutral-700 rounded-xl py-3 text-neutral-400 hover:border-red-600 hover:text-red-500 transition-all flex items-center justify-center gap-2"
+                        >
+                          <Video size={18} />
+                          <span className="text-sm font-bold uppercase tracking-widest">Add Video Link</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

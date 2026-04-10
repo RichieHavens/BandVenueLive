@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { BandMember } from '../types';
-import { Plus, Trash2, Edit2, Loader2, X, Check } from 'lucide-react';
+import { Plus, Trash2, Edit2, Loader2, X, Check, User } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Card } from './ui/Card';
 import { handleSupabaseError, OperationType } from '../lib/error-handler';
+import { cn } from '../lib/utils';
 
 interface BandMembersManagerProps {
   bandId: string;
@@ -163,94 +164,86 @@ export default function BandMembersManager({ bandId }: BandMembersManagerProps) 
   if (bandId === 'new') {
     return (
       <div className="max-w-4xl mx-auto mt-12 pt-8 border-t border-neutral-800">
-        <h3 className="text-2xl font-bold mb-6">Band Members</h3>
+        <h3 className="text-2xl font-bold mb-6 text-white">Band Members</h3>
         <p className="text-neutral-400">Please save the band profile first before adding members.</p>
       </div>
     );
   }
 
   return (
-    <div id="band-members-section" className="max-w-4xl mx-auto mt-12 pt-8 border-t border-neutral-800">
+    <div id="band-members-section" className="mt-12 pt-8 border-t border-neutral-800">
       <div className="flex items-center justify-between mb-6">
-        <h3 className="text-2xl font-bold">Band Members</h3>
+        <h3 className="text-2xl font-bold text-white">Band Members</h3>
         <Button
           type="button"
           onClick={() => {
             setEditingMember({ is_active: true });
             setIsModalOpen(true);
           }}
-          className="group"
+          size="sm"
         >
-          <Plus size={16} className="text-white mr-2" /> Add Member
+          <Plus size={16} className="mr-2" /> Add Member
         </Button>
       </div>
 
       {loading ? (
         <div className="flex justify-center py-8">
-          <Loader2 className="animate-spin text-red-500" size={32} />
+          <Loader2 className="animate-spin text-cyan-500" size={32} />
         </div>
       ) : members.length === 0 ? (
         <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-8 text-center">
           <p className="text-neutral-400">No members added yet.</p>
         </div>
       ) : (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead className="bg-neutral-950 border-b border-neutral-800">
-                <tr>
-                  <th className="px-6 py-4 text-xs font-bold text-neutral-400 uppercase tracking-widest">Name</th>
-                  <th className="px-6 py-4 text-xs font-bold text-neutral-400 uppercase tracking-widest">Email</th>
-                  <th className="px-6 py-4 text-xs font-bold text-neutral-400 uppercase tracking-widest">Instrument</th>
-                  <th className="px-6 py-4 text-xs font-bold text-neutral-400 uppercase tracking-widest">Status</th>
-                  <th className="px-6 py-4 text-xs font-bold text-neutral-400 uppercase tracking-widest text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-800">
-                {members.map((member) => (
-                  <tr key={member.id} className="hover:bg-neutral-800/50 transition-colors">
-                    <td className="px-6 py-4 font-medium">{member.first_name} {member.last_name}</td>
-                    <td className="px-6 py-4 text-neutral-400">{member.email}</td>
-                    <td className="px-6 py-4 text-neutral-400">{member.instrument_description}</td>
-                    <td className="px-6 py-4">
-                      <Button
-                        variant={member.is_active ? 'primary' : 'secondary'}
-                        size="sm"
-                        onClick={() => toggleStatus(member)}
-                      >
-                        {member.is_active ? 'Active' : 'Inactive'}
-                      </Button>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setEditingMember(member);
-                          setIsModalOpen(true);
-                        }}
-                        className="group"
-                      >
-                        <Edit2 size={16} className="text-neutral-400 group-hover:text-cyan-400" />
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {members.map((member) => (
+            <div key={member.id} className="bg-neutral-900 border border-neutral-800 rounded-2xl p-4 flex flex-col gap-4">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-neutral-800 flex items-center justify-center shrink-0">
+                    <User size={20} className="text-neutral-400" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-white">{member.first_name} {member.last_name}</h4>
+                    <p className="text-sm text-neutral-400">{member.instrument_description || 'No instrument listed'}</p>
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setEditingMember(member);
+                    setIsModalOpen(true);
+                  }}
+                  className="shrink-0"
+                >
+                  <Edit2 size={16} className="text-neutral-400 hover:text-cyan-400" />
+                </Button>
+              </div>
+              <div className="flex items-center justify-between pt-4 border-t border-neutral-800">
+                <span className="text-sm text-neutral-500 truncate pr-4">{member.email}</span>
+                <Button
+                  variant={member.is_active ? 'primary' : 'secondary'}
+                  size="sm"
+                  onClick={() => toggleStatus(member)}
+                  className={cn("shrink-0 text-xs py-1 h-auto", member.is_active ? "bg-cyan-500/10 text-cyan-500 hover:bg-cyan-500/20" : "")}
+                >
+                  {member.is_active ? 'Active' : 'Inactive'}
+                </Button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
       {/* Add/Edit Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-          <Card className="relative w-full max-w-lg p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold">{editingMember?.id ? 'Edit Member' : 'Add Band Member'}</h3>
-              <button onClick={() => setIsModalOpen(false)} className="p-2 text-neutral-400 hover:text-cyan-400 hover:bg-neutral-800 rounded-full transition-all group">
-                <X size={20} className="group-hover:text-cyan-400" />
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="w-full max-w-lg bg-neutral-900 border border-neutral-800 rounded-3xl p-6 sm:p-8 shadow-2xl animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6 sticky top-0 bg-neutral-900 z-10 pb-2 border-b border-neutral-800">
+              <h3 className="text-2xl font-bold text-white">{editingMember?.id ? 'Edit Member' : 'Add Band Member'}</h3>
+              <button onClick={() => setIsModalOpen(false)} className="p-2 text-neutral-400 hover:text-white rounded-full transition-colors">
+                <X size={20} />
               </button>
             </div>
 
@@ -261,89 +254,88 @@ export default function BandMembersManager({ bandId }: BandMembersManagerProps) 
               </div>
             )}
 
-            <form onSubmit={handleSaveMember} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-neutral-400">First Name *</label>
-                  <Input
-                    type="text"
-                    required
-                    value={editingMember?.first_name || ''}
-                    onChange={(e) => setEditingMember({ ...editingMember, first_name: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-neutral-400">Last Name *</label>
-                  <Input
-                    type="text"
-                    required
-                    value={editingMember?.last_name || ''}
-                    onChange={(e) => setEditingMember({ ...editingMember, last_name: e.target.value })}
-                  />
-                </div>
+            <form onSubmit={handleSaveMember} className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  label="First Name *"
+                  type="text"
+                  required
+                  value={editingMember?.first_name || ''}
+                  onChange={(e) => setEditingMember({ ...editingMember, first_name: e.target.value })}
+                />
+                <Input
+                  label="Last Name *"
+                  type="text"
+                  required
+                  value={editingMember?.last_name || ''}
+                  onChange={(e) => setEditingMember({ ...editingMember, last_name: e.target.value })}
+                />
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-neutral-400">Email *</label>
                 <Input
+                  label="Email *"
                   type="email"
                   required
                   value={editingMember?.email || ''}
                   onChange={(e) => setEditingMember({ ...editingMember, email: e.target.value })}
                 />
-                <p className="text-xs text-neutral-400 mt-1">We will use this to link to an existing user or create a new one.</p>
+                <p className="text-[10px] text-neutral-500 font-medium uppercase tracking-wider ml-1">We will use this to link to an existing user or create a new one.</p>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-neutral-400">Instrument Description</label>
-                <Input
-                  type="text"
-                  value={editingMember?.instrument_description || ''}
-                  onChange={(e) => setEditingMember({ ...editingMember, instrument_description: e.target.value })}
-                  placeholder="e.g., Lead Guitar, Vocals"
-                />
-              </div>
+              <Input
+                label="Instrument Description"
+                type="text"
+                value={editingMember?.instrument_description || ''}
+                onChange={(e) => setEditingMember({ ...editingMember, instrument_description: e.target.value })}
+                placeholder="e.g., Lead Guitar, Vocals"
+              />
 
               <div className="space-y-2">
-                <label className="text-sm font-medium text-neutral-400">User ID (Read Only)</label>
-                <Input
+                <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">User ID (Read Only)</label>
+                <input
                   type="text"
                   readOnly
                   value={editingMember?.person_id || 'Will be generated/linked on save'}
-                  className="bg-neutral-800/50 text-neutral-400 cursor-not-allowed"
+                  className="w-full bg-neutral-800/50 border border-neutral-800 rounded-xl py-3 px-4 text-neutral-500 cursor-not-allowed outline-none"
                 />
               </div>
 
-              <div className="flex items-center gap-3 pt-2">
+              <label className="flex items-center gap-3 p-4 bg-neutral-800 rounded-xl border border-neutral-700 cursor-pointer group hover:border-neutral-600 transition-colors">
                 <input
                   type="checkbox"
-                  id="isActive"
                   checked={editingMember?.is_active !== false}
                   onChange={(e) => setEditingMember({ ...editingMember, is_active: e.target.checked })}
-                  className="w-5 h-5 rounded border-neutral-600 text-red-500 focus:ring-red-600 bg-neutral-900"
+                  className="sr-only"
                 />
-                <label htmlFor="isActive" className="text-sm font-medium text-white cursor-pointer">
-                  Active Member
-                </label>
-              </div>
+                <div className={cn(
+                  "w-5 h-5 rounded border flex items-center justify-center transition-colors",
+                  editingMember?.is_active !== false ? "bg-cyan-500 border-cyan-500" : "bg-neutral-900 border-neutral-600 group-hover:border-neutral-500"
+                )}>
+                  {editingMember?.is_active !== false && <div className="w-2.5 h-2.5 bg-white rounded-sm" />}
+                </div>
+                <span className="font-semibold text-white">Active Member</span>
+              </label>
 
-              <div className="pt-6 flex gap-4">
+              <div className="pt-6 border-t border-neutral-800 flex flex-col sm:flex-row gap-3">
                 <Button
                   type="button"
                   variant="secondary"
                   onClick={() => setIsModalOpen(false)}
+                  className="w-full sm:w-auto"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={saving}
+                  className="w-full sm:flex-1"
                 >
                   {saving ? <Loader2 className="animate-spin" size={20} /> : 'Save Member'}
                 </Button>
               </div>
             </form>
-          </Card>
+          </div>
         </div>
       )}
     </div>

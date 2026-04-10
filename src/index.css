@@ -151,4 +151,7 @@
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background-color: #525252;
   }
+  .pb-safe {
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom));
+  }
 }

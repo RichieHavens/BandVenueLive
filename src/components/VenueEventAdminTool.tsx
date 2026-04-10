@@ -3,6 +3,9 @@ import { Plus, Loader2, Save, X, Calendar, Clock, MapPin, DollarSign, FileText, 
 import { VenueEventProfile } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../AuthContext';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
+import { Textarea } from './ui/Textarea';
 
 export default function VenueEventAdminTool({ venueId }: { venueId: string }) {
   const { user } = useAuth();
@@ -44,57 +47,70 @@ export default function VenueEventAdminTool({ venueId }: { venueId: string }) {
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">Venue Event Admin Tool</h2>
-        <button 
+    <div className="p-4 sm:p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-2xl font-bold text-white">Venue Event Admin Tool</h2>
+        <Button 
           onClick={() => setShowEditor(true)}
-          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-xl font-semibold transition-all flex items-center gap-2"
+          size="sm"
         >
-          <Plus size={20} />
-          New Event
-        </button>
+          <Plus size={18} />
+          <span className="hidden sm:inline">New Event</span>
+        </Button>
       </div>
       
       {showEditor && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <form onSubmit={handleSave} className="bg-neutral-900 p-6 rounded-2xl w-full max-w-lg space-y-4">
-            <h3 className="text-xl font-bold">New Event</h3>
-            <input 
-              type="text" 
-              placeholder="Event Title" 
-              className="w-full bg-neutral-800 p-3 rounded-xl"
-              value={formData.title}
-              onChange={e => setFormData({...formData, title: e.target.value})}
-              required
-            />
-            <textarea 
-              placeholder="Description" 
-              className="w-full bg-neutral-800 p-3 rounded-xl"
-              value={formData.description}
-              onChange={e => setFormData({...formData, description: e.target.value})}
-            />
-            <div className="flex gap-4">
-              <input 
-                type="datetime-local" 
-                className="w-full bg-neutral-800 p-3 rounded-xl"
-                value={formData.start_time}
-                onChange={e => setFormData({...formData, start_time: e.target.value})}
-                required
-              />
-              <input 
-                type="time" 
-                className="w-full bg-neutral-800 p-3 rounded-xl"
-                value={formData.doors_open_time}
-                onChange={e => setFormData({...formData, doors_open_time: e.target.value})}
-                required
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setShowEditor(false)} className="px-4 py-2 text-neutral-400">Cancel</button>
-              <button type="submit" className="bg-red-600 text-white px-4 py-2 rounded-xl" disabled={loading}>
-                {loading ? <Loader2 className="animate-spin" /> : 'Save Event'}
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <form onSubmit={handleSave} className="bg-neutral-900 border border-neutral-800 p-6 rounded-3xl w-full max-w-lg space-y-6 shadow-2xl animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold text-white">New Event</h3>
+              <button type="button" onClick={() => setShowEditor(false)} className="p-2 text-neutral-400 hover:text-white rounded-full transition-colors">
+                <X size={20} />
               </button>
+            </div>
+            
+            <div className="space-y-4">
+              <Input 
+                label="Event Title"
+                type="text" 
+                placeholder="e.g. Friday Night Live" 
+                value={formData.title || ''}
+                onChange={e => setFormData({...formData, title: e.target.value})}
+                required
+              />
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Description</label>
+                <Textarea 
+                  placeholder="Tell us about the event..." 
+                  value={formData.description || ''}
+                  onChange={e => setFormData({...formData, description: e.target.value})}
+                  rows={3}
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input 
+                  label="Start Time"
+                  type="datetime-local" 
+                  value={formData.start_time || ''}
+                  onChange={e => setFormData({...formData, start_time: e.target.value})}
+                  required
+                />
+                <Input 
+                  label="Doors Open"
+                  type="time" 
+                  value={formData.doors_open_time || ''}
+                  onChange={e => setFormData({...formData, doors_open_time: e.target.value})}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-neutral-800">
+              <Button type="button" variant="secondary" onClick={() => setShowEditor(false)}>Cancel</Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                Save Event
+              </Button>
             </div>
           </form>
         </div>

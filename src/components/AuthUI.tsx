@@ -160,9 +160,9 @@ export default function AuthUI({ onSuccess }: { onSuccess?: () => void }) {
       >
         <div className="text-center mb-4">
           <img 
-            src="/bandvenue_navbar_micro_final.png" 
+            src="/bandvenue_transparent.png" 
             alt="BandVenue Logo" 
-            className="h-24 w-auto mx-auto mb-4 object-contain"
+            className="h-24 w-auto mx-auto mb-4 object-contain max-w-full"
             referrerPolicy="no-referrer"
           />
           {!isForgotPassword && (

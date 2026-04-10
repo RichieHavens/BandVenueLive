@@ -12,6 +12,8 @@ import { AppEvent, Venue } from '../../types';
 import { ConfirmationModal } from '../ui/ConfirmationModal';
 import { EVENT_DEFAULTS } from '../../lib/eventDefaults';
 import { useEventValidation } from '../../lib/hooks/useEventValidation';
+import { cn } from '../../lib/utils';
+import { SearchableSelect } from '../ui/SearchableSelect';
 
 interface QuickAddEventModalProps {
   isOpen: boolean;
@@ -24,7 +26,11 @@ export default function QuickAddEventModal({ isOpen, onClose, onSuccess }: Quick
   const [title, setTitle] = useState('');
   const [venueId, setVenueId] = useState('');
   const [venues, setVenues] = useState<Pick<Venue, 'id' | 'name'>[]>([]);
-  const [date, setDate] = useState('');
+  
+  // Smart Default: Date is today
+  const today = new Date().toISOString().split('T')[0];
+  const [date, setDate] = useState(today);
+  
   const [startTime, setStartTime] = useState(EVENT_DEFAULTS.start_time);
   const [endTime, setEndTime] = useState(EVENT_DEFAULTS.end_time);
   const [isPublic, setIsPublic] = useState(EVENT_DEFAULTS.is_public);
@@ -36,6 +42,12 @@ export default function QuickAddEventModal({ isOpen, onClose, onSuccess }: Quick
   useEffect(() => {
     if (isOpen) {
       fetchData();
+      // Reset defaults on open
+      setDate(new Date().toISOString().split('T')[0]);
+      setStartTime(EVENT_DEFAULTS.start_time);
+      setEndTime(EVENT_DEFAULTS.end_time);
+      setTitle('');
+      setVenueId('');
     }
   }, [isOpen]);
 
@@ -104,25 +116,26 @@ export default function QuickAddEventModal({ isOpen, onClose, onSuccess }: Quick
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <Card className="w-full max-w-lg p-8 shadow-2xl">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-2xl font-bold">Quick Add Event</h3>
-          <button onClick={onClose} className="p-2 text-neutral-400 hover:text-red-400 rounded-full">
+      <div className="w-full max-w-lg bg-neutral-900 border border-neutral-800 rounded-3xl p-6 sm:p-8 shadow-2xl animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-6 sticky top-0 bg-neutral-900 z-10 pb-2 border-b border-neutral-800">
+          <h3 className="text-2xl font-bold text-white">Quick Add Event</h3>
+          <button onClick={onClose} className="p-2 text-neutral-400 hover:text-white rounded-full transition-colors">
             <X size={20} />
           </button>
         </div>
-        <form className="space-y-4">
-          <Input label="Event Name" required value={title} onChange={(e) => setTitle(e.target.value)} />
+        <form className="space-y-6">
+          <Input label="Event Name" required value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Friday Night Live" />
           
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Venue</label>
-            <select className="w-full bg-neutral-800 p-3 rounded-xl" value={venueId} onChange={(e) => setVenueId(e.target.value)} required>
-              <option value="">Select a venue</option>
-              {venues.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-            </select>
-          </div>
+          <SearchableSelect
+            label="Venue"
+            required
+            value={venueId}
+            onChange={setVenueId}
+            options={venues}
+            placeholder="Select a venue..."
+          />
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input label="Date" type="date" required value={date} onChange={(e) => setDate(e.target.value)} />
             <div className="grid grid-cols-2 gap-2">
               <Input label="Start" type="time" required value={startTime} onChange={(e) => setStartTime(e.target.value)} />
@@ -130,23 +143,39 @@ export default function QuickAddEventModal({ isOpen, onClose, onSuccess }: Quick
             </div>
           </div>
 
-          <label className="flex items-center gap-3 p-3 bg-neutral-800 rounded-xl border border-neutral-700 cursor-pointer">
-            <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} className="w-5 h-5 rounded border-neutral-600 text-red-500 bg-neutral-900" />
-            <span className="font-medium">Public Event</span>
-          </label>
+          <div className="flex flex-col sm:flex-row gap-4">
+            <label className="flex-1 flex items-center gap-3 p-4 bg-neutral-800 rounded-xl border border-neutral-700 cursor-pointer group hover:border-neutral-600 transition-colors">
+              <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} className="sr-only" />
+              <div className={cn(
+                "w-5 h-5 rounded border flex items-center justify-center transition-colors",
+                isPublic ? "bg-cyan-500 border-cyan-500" : "bg-neutral-900 border-neutral-600 group-hover:border-neutral-500"
+              )}>
+                {isPublic && <div className="w-2.5 h-2.5 bg-white rounded-sm" />}
+              </div>
+              <span className="font-semibold text-white">Public Event</span>
+            </label>
 
-          <label className="flex items-center gap-3 p-3 bg-neutral-800 rounded-xl border border-neutral-700 cursor-pointer">
-            <input type="checkbox" checked={hasMultipleActs} onChange={(e) => setHasMultipleActs(e.target.checked)} className="w-5 h-5 rounded border-neutral-600 text-red-500 bg-neutral-900" />
-            <span className="font-medium">Has Multiple Acts?</span>
-          </label>
+            <label className="flex-1 flex items-center gap-3 p-4 bg-neutral-800 rounded-xl border border-neutral-700 cursor-pointer group hover:border-neutral-600 transition-colors">
+              <input type="checkbox" checked={hasMultipleActs} onChange={(e) => setHasMultipleActs(e.target.checked)} className="sr-only" />
+              <div className={cn(
+                "w-5 h-5 rounded border flex items-center justify-center transition-colors",
+                hasMultipleActs ? "bg-cyan-500 border-cyan-500" : "bg-neutral-900 border-neutral-600 group-hover:border-neutral-500"
+              )}>
+                {hasMultipleActs && <div className="w-2.5 h-2.5 bg-white rounded-sm" />}
+              </div>
+              <span className="font-semibold text-white">Multiple Acts</span>
+            </label>
+          </div>
 
           <Scratchpad />
           
-          <div className="pt-6 flex flex-wrap gap-4">
-            <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button type="button" onClick={(e) => handleSave(e, 'close')} disabled={saving}>Save & Close</Button>
-            <Button type="button" onClick={(e) => handleSave(e, 'another')} disabled={saving}>Save & Add Another</Button>
-            <Button type="button" onClick={(e) => handleSave(e, 'open')} disabled={saving}>Save & Open</Button>
+          <div className="pt-6 border-t border-neutral-800 flex flex-col sm:flex-row gap-3">
+            <Button type="button" variant="secondary" onClick={onClose} className="sm:w-auto w-full">Cancel</Button>
+            <div className="flex-1 flex flex-col sm:flex-row gap-3 justify-end">
+              <Button type="button" variant="secondary" onClick={(e) => handleSave(e, 'another')} disabled={saving} className="w-full sm:w-auto">Save & Add Another</Button>
+              <Button type="button" variant="secondary" onClick={(e) => handleSave(e, 'open')} disabled={saving} className="w-full sm:w-auto">Save & Open</Button>
+              <Button type="button" onClick={(e) => handleSave(e, 'close')} disabled={saving} className="w-full sm:w-auto">Save & Close</Button>
+            </div>
           </div>
         </form>
         <ConfirmationModal
@@ -160,7 +189,7 @@ export default function QuickAddEventModal({ isOpen, onClose, onSuccess }: Quick
           message={`This event overlaps with "${overlapEvent?.title}" at ${overlapEvent?.start_time ? new Date(overlapEvent.start_time).toLocaleDateString() : 'unknown date'}. Are you sure you want to continue?`}
           confirmText="Save Anyway"
         />
-      </Card>
+      </div>
     </div>
   );
 }

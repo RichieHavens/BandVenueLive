@@ -147,7 +147,7 @@ function AppContent() {
       {activeTab !== 'login' && <Navigation />}
 
       {/* Main Content */}
-      <main className={`${activeTab === 'login' ? '' : 'pt-6 pb-24 md:pt-24 md:pb-12 max-w-7xl mx-auto px-4'}`}>
+      <main className={`${activeTab === 'login' ? '' : 'pt-6 pb-32 md:pt-24 md:pb-12 max-w-7xl mx-auto px-4'}`}>
         {!user && !['events', 'venues', 'bands', 'musicians', 'login', 'confirm-event'].includes(activeTab) ? (
           <AuthUI />
         ) : (

@@ -76,7 +76,7 @@ export default function VenueWorkspaceLayout({ venues, loading, eventCounts }: V
   );
 
   return (
-    <div className="min-h-screen flex flex-col md:flex-row gap-6 pb-24">
+    <div className="min-h-screen flex flex-col md:flex-row gap-6">
       {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between p-4 bg-neutral-900 rounded-2xl mb-4">
         <div className="truncate">

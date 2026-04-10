@@ -1,15 +1,23 @@
 import React from 'react';
 import { supabase } from '../lib/supabase';
-import { Search, Filter, Calendar, Music, Clock, MapPin, Loader2 } from 'lucide-react';
+import { Search, Filter, Calendar, Music, Clock, MapPin, Loader2, X, SlidersHorizontal, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import RolePersonalizedHeader from '../components/RolePersonalizedHeader';
 import EventDetailsModal from '../components/EventDetailsModal';
 import { AppEvent } from '../types';
-import { isSimilar, formatFullDate, formatTime } from '../lib/utils';
+import { isSimilar, formatFullDate, formatTime, cn } from '../lib/utils';
 import { getEventReadiness } from '../components/VenueManagerDashboard';
 import { useAuth } from '../AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "../components/ui/sheet";
+import { Badge } from "../components/ui/badge";
 
 export function EventsView() {
   const { activeRole } = useAuth();
@@ -109,18 +117,18 @@ export function EventsView() {
   }, {});
 
   return (
-    <div className="space-y-12 pb-20">
-      <section className="relative h-[60vh] -mt-6 md:-mt-4 -mx-4 md:-mx-8 lg:-mx-12 mb-12 overflow-hidden flex items-end p-8 md:p-16 rounded-b-[3rem]">
+    <div className="space-y-6 md:space-y-8 md:pb-20">
+      <section className="relative h-[25vh] md:h-[40vh] -mt-6 md:-mt-4 -mx-4 md:-mx-8 lg:-mx-12 mb-6 md:mb-8 overflow-hidden flex items-end p-6 md:p-16 rounded-b-[2rem] md:rounded-b-[3rem]">
         <img 
           src="https://images.unsplash.com/photo-1501281668745-f7f57925c3b4?auto=format&fit=crop&q=80&w=2070" 
           className="absolute inset-0 w-full h-full object-cover brightness-50"
           alt="Hero"
           referrerPolicy="no-referrer"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/40 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/60 to-transparent" />
         
         <div className="relative z-10 max-w-4xl flex flex-col items-start w-full">
-          <p className="text-4xl md:text-6xl font-black uppercase tracking-tighter text-white drop-shadow-2xl">
+          <p className="text-2xl md:text-5xl font-black uppercase tracking-tighter text-white drop-shadow-2xl leading-none">
             Connecting local fans with <span className="text-cyan-400">local bands.</span>
           </p>
         </div>
@@ -128,83 +136,220 @@ export function EventsView() {
 
       <RolePersonalizedHeader pageId="events" />
 
-      <div className="sticky top-0 z-30 bg-black/80 backdrop-blur-xl -mx-4 px-4 py-4 border-b border-neutral-800 flex flex-wrap gap-4 items-center justify-between">
-        <div className="flex flex-wrap gap-4 items-center">
-          <Button 
-            variant={filter.date === new Date().toISOString().split('T')[0] ? 'primary' : 'secondary'}
-            onClick={() => setFilter({...filter, date: new Date().toISOString().split('T')[0]})}
-          >
-            Today
-          </Button>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={14} />
-            <Input 
-              placeholder="Search venue or band..."
-              className="pl-10 w-full md:w-64"
-              value={filter.venue}
-              onChange={(e) => setFilter({...filter, venue: e.target.value})}
-              onFocus={() => setIsSearchFocused(true)}
-              onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
-            />
-            {isSearchFocused && searchSuggestions.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl overflow-hidden z-50">
-                {searchSuggestions.map(suggestion => (
-                  <button
-                    key={suggestion}
-                    className="w-full text-left px-4 py-2 text-sm text-neutral-300 hover:bg-neutral-700 hover:text-white transition-colors"
-                    onClick={() => {
-                      setFilter({...filter, venue: suggestion});
-                      setIsSearchFocused(false);
-                    }}
-                  >
-                    {suggestion}
+      {/* Filter Bar */}
+      <div className="sticky top-0 z-30 bg-neutral-950/90 backdrop-blur-xl -mx-4 px-4 py-3 border-b border-neutral-800 shadow-sm">
+        <div className="max-w-7xl mx-auto flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-4">
+            {/* Mobile Filters */}
+            <div className="flex md:hidden items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+              <button 
+                onClick={() => setFilter({...filter, date: filter.date === new Date().toISOString().split('T')[0] ? '' : new Date().toISOString().split('T')[0]})}
+                className={cn(
+                  "px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap",
+                  filter.date === new Date().toISOString().split('T')[0]
+                    ? "bg-cyan-500 text-white shadow-lg shadow-cyan-500/20"
+                    : "bg-neutral-900 text-neutral-400 border border-neutral-800"
+                )}
+              >
+                Today
+              </button>
+              
+              <Sheet>
+                <SheetTrigger render={
+                  <button className="flex items-center gap-2 px-4 py-2 rounded-full bg-neutral-900 text-neutral-400 border border-neutral-800 text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap">
+                    <SlidersHorizontal size={14} />
+                    Filters {(filter.genre || filter.venue || (filter.date && filter.date !== new Date().toISOString().split('T')[0])) && "•"}
                   </button>
-                ))}
+                } />
+                <SheetContent side="bottom" className="bg-neutral-950 border-neutral-800 rounded-t-3xl h-[85vh] flex flex-col">
+                  <SheetHeader className="pb-4 border-b border-neutral-800 shrink-0">
+                    <SheetTitle className="text-white text-lg font-black uppercase tracking-widest">Filters</SheetTitle>
+                  </SheetHeader>
+                  <div className="py-6 space-y-8 overflow-y-auto custom-scrollbar flex-1">
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500">Search</label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={16} />
+                        <Input 
+                          placeholder="Venue or band..."
+                          className="pl-10 h-12 bg-neutral-900 border-neutral-800 rounded-xl"
+                          value={filter.venue}
+                          onChange={(e) => setFilter({...filter, venue: e.target.value})}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500">Genre</label>
+                      <div className="flex flex-wrap gap-2">
+                        <button 
+                          onClick={() => setFilter({...filter, genre: ''})}
+                          className={cn(
+                            "px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all",
+                            !filter.genre ? "bg-cyan-500 text-white" : "bg-neutral-900 text-neutral-400 border border-neutral-800"
+                          )}
+                        >
+                          All
+                        </button>
+                        {availableGenres.map(g => (
+                          <button 
+                            key={g as string}
+                            onClick={() => setFilter({...filter, genre: g as string})}
+                            className={cn(
+                              "px-4 py-2 rounded-full text-xs font-bold uppercase tracking-wider transition-all",
+                              filter.genre === g ? "bg-cyan-500 text-white" : "bg-neutral-900 text-neutral-400 border border-neutral-800"
+                            )}
+                          >
+                            {g as string}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500">Date</label>
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={16} />
+                        <input 
+                          type="date" 
+                          className="w-full bg-neutral-900 border border-neutral-800 rounded-xl pl-10 pr-4 h-12 text-white outline-none focus:ring-2 focus:ring-cyan-500"
+                          value={filter.date}
+                          onChange={(e) => setFilter({...filter, date: e.target.value})}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pt-4 pb-8 border-t border-neutral-800 flex gap-3 shrink-0 bg-neutral-950">
+                    <Button 
+                      className="flex-1 h-12 bg-neutral-900 text-white hover:bg-neutral-800"
+                      onClick={() => {
+                        setFilter({ genre: '', date: '', venue: '' });
+                      }}
+                      variant="secondary"
+                    >
+                      Reset
+                    </Button>
+                    <SheetTrigger render={
+                      <Button className="flex-1 h-12">Apply</Button>
+                    } />
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
+
+            {/* Desktop Filters */}
+            <div className="hidden md:flex flex-wrap gap-4 items-center">
+              <Button 
+                variant={filter.date === new Date().toISOString().split('T')[0] ? 'primary' : 'secondary'}
+                onClick={() => setFilter({...filter, date: new Date().toISOString().split('T')[0]})}
+                size="sm"
+              >
+                Today
+              </Button>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={14} />
+                <Input 
+                  placeholder="Search venue or band..."
+                  className="pl-10 w-64 h-10 bg-neutral-900 border-neutral-800"
+                  value={filter.venue}
+                  onChange={(e) => setFilter({...filter, venue: e.target.value})}
+                  onFocus={() => setIsSearchFocused(true)}
+                  onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                />
+                {isSearchFocused && searchSuggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-neutral-900 border border-neutral-800 rounded-xl shadow-xl overflow-hidden z-50">
+                    {searchSuggestions.map(suggestion => (
+                      <button
+                        key={suggestion}
+                        className="w-full text-left px-4 py-3 text-sm text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors border-b border-neutral-800/50 last:border-0"
+                        onClick={() => {
+                          setFilter({...filter, venue: suggestion});
+                          setIsSearchFocused(false);
+                        }}
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          <div className="w-px h-6 bg-neutral-800 mx-2 hidden md:block" />
-          <div className="relative">
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={14} />
-            <select 
-              className="bg-neutral-800 border border-neutral-700 rounded-lg pl-10 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-cyan-400 appearance-none text-white"
-              value={filter.genre}
-              onChange={(e) => setFilter({...filter, genre: e.target.value})}
-            >
-              <option value="">All Genres</option>
-              {availableGenres.map(g => (
-                <option key={g as string} value={g as string}>{g as string}</option>
-              ))}
-            </select>
-          </div>
-          <div className="relative group">
-            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-cyan-400 transition-colors pointer-events-none" size={14} />
-            <input 
-              type="date" 
-              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
-              value={filter.date}
-              onChange={(e) => setFilter({...filter, date: e.target.value})}
-              onClick={(e) => (e.target as any).showPicker?.()}
-            />
-            <div className="bg-neutral-800 border border-neutral-700 rounded-lg pl-10 pr-4 py-2 text-sm text-neutral-300 min-w-[140px] h-[38px] flex items-center">
-              {filter.date ? (() => {
-                const [y, m, d] = filter.date.split('-');
-                return `${m}/${d}/${y}`;
-              })() : 'mm/dd/yyyy'}
+              <div className="w-px h-6 bg-neutral-800 mx-2" />
+              <div className="relative">
+                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={14} />
+                <select 
+                  className="bg-neutral-900 border border-neutral-800 rounded-lg pl-10 pr-4 h-10 text-sm outline-none focus:ring-2 focus:ring-cyan-400 appearance-none text-white"
+                  value={filter.genre}
+                  onChange={(e) => setFilter({...filter, genre: e.target.value})}
+                >
+                  <option value="">All Genres</option>
+                  {availableGenres.map(g => (
+                    <option key={g as string} value={g as string}>{g as string}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="relative group">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 group-focus-within:text-cyan-400 transition-colors pointer-events-none" size={14} />
+                <input 
+                  type="date" 
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                  value={filter.date}
+                  onChange={(e) => setFilter({...filter, date: e.target.value})}
+                  onClick={(e) => (e.target as any).showPicker?.()}
+                />
+                <div className="bg-neutral-900 border border-neutral-800 rounded-lg pl-10 pr-4 h-10 text-sm text-neutral-300 min-w-[140px] flex items-center">
+                  {filter.date ? (() => {
+                    const [y, m, d] = filter.date.split('-');
+                    return `${m}/${d}/${y}`;
+                  })() : 'mm/dd/yyyy'}
+                </div>
+              </div>
+              {filter.date && (
+                <Button 
+                  variant="ghost"
+                  onClick={() => setFilter({...filter, date: ''})}
+                  className="text-[10px] font-black uppercase tracking-widest h-10"
+                >
+                  Show All Upcoming
+                </Button>
+              )}
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <p className="text-neutral-500 text-[10px] font-black uppercase tracking-widest hidden lg:block">{filteredEvents.length} Events</p>
             </div>
           </div>
-          {filter.date && (
-            <Button 
-              variant="ghost"
-              onClick={() => setFilter({...filter, date: ''})}
-              className="text-xs font-bold uppercase tracking-widest"
-            >
-              Show All Upcoming
-            </Button>
-          )}
-        </div>
-        <div className="flex items-center gap-4">
-          <p className="text-neutral-400 text-sm font-medium hidden sm:block">{filteredEvents.length} Events Found</p>
+
+          {/* Active Filters Row (Mobile & Desktop) */}
+          <AnimatePresence>
+            {(filter.genre || filter.venue || filter.date) && (
+              <motion.div 
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="flex items-center pt-2 border-t border-neutral-800/50"
+              >
+                <div className="flex-1 flex items-center gap-1.5 overflow-x-auto no-scrollbar pr-2">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-neutral-500 shrink-0 mr-1">Active:</span>
+                  {filter.date && (
+                    <Badge variant="secondary" className="bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border-neutral-700 shrink-0 cursor-pointer py-1" onClick={() => setFilter({...filter, date: ''})}>
+                      {filter.date} <X size={10} className="ml-1 opacity-50" />
+                    </Badge>
+                  )}
+                  {filter.genre && (
+                    <Badge variant="secondary" className="bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border-neutral-700 shrink-0 cursor-pointer py-1" onClick={() => setFilter({...filter, genre: ''})}>
+                      {filter.genre} <X size={10} className="ml-1 opacity-50" />
+                    </Badge>
+                  )}
+                  {filter.venue && (
+                    <Badge variant="secondary" className="bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border-neutral-700 shrink-0 cursor-pointer py-1" onClick={() => setFilter({...filter, venue: ''})}>
+                      "{filter.venue}" <X size={10} className="ml-1 opacity-50" />
+                    </Badge>
+                  )}
+                </div>
+                <button onClick={() => setFilter({genre: '', venue: '', date: ''})} className="text-[10px] font-bold text-cyan-500 hover:text-cyan-400 shrink-0 pl-3 border-l border-neutral-800 h-6 flex items-center">Clear All</button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -213,11 +358,11 @@ export function EventsView() {
       ) : filteredEvents.length === 0 ? (
         <div className="text-center py-20 text-neutral-400">No events found for the selected filters.</div>
       ) : (
-        <div className="space-y-12">
+        <div className="space-y-6 md:space-y-10">
           {Object.entries(groupedEvents).map(([date, dateEvents]: [string, any]) => (
-            <div key={date} className="space-y-6">
-              <h2 className="text-2xl font-black uppercase tracking-widest text-cyan-400 border-b border-neutral-800 pb-2">{date}</h2>
-              <div className="space-y-4">
+            <div key={date} className="space-y-3 md:space-y-4">
+              <h2 className="text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-neutral-500 border-b border-neutral-800/50 pb-2 px-1">{date}</h2>
+              <div className="grid grid-cols-1 gap-2 md:gap-3">
                 {dateEvents.map((event: any) => {
                   const genericTitles = ['live music', 'event', 'show', 'concert', 'performance'];
                   const titleLower = event.title?.toLowerCase().trim() || '';
@@ -230,55 +375,33 @@ export function EventsView() {
                   return (
                     <motion.div 
                       key={event.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className="flex items-center gap-6 p-4 rounded-2xl bg-neutral-800/50 border border-neutral-700 hover:bg-neutral-800 transition-all group"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      onClick={() => setSelectedEvent(event)}
+                      className="flex items-center gap-3 p-2.5 md:p-3 rounded-xl bg-neutral-900/20 border border-neutral-800/30 active:bg-neutral-800/40 md:hover:bg-neutral-800/40 transition-colors group cursor-pointer"
                     >
-                      <div className="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0">
-                        <img 
-                          src={event.hero_url || `https://picsum.photos/seed/event${event.id}/200/200`} 
-                          alt={event.title}
-                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                          referrerPolicy="no-referrer"
-                        />
+                      <div className="w-10 h-10 md:w-12 md:h-12 rounded-lg overflow-hidden flex-shrink-0 bg-neutral-800 border border-neutral-700/30 flex items-center justify-center">
+                        {event.hero_url ? (
+                          <img 
+                            src={event.hero_url} 
+                            alt={event.title}
+                            className="w-full h-full object-cover"
+                            referrerPolicy="no-referrer"
+                          />
+                        ) : (
+                          <Music size={16} className="text-neutral-600" />
+                        )}
                       </div>
-                      <div className="flex-grow min-w-0">
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          {event.event_genres?.map((g: string) => (
-                            <span key={g} className="text-[10px] font-bold uppercase tracking-widest text-cyan-400/70">{g}</span>
-                          ))}
-                          {(activeRole === 'venue_manager' || activeRole === 'admin') && (
-                            <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full ${getEventReadiness(event).bgClass} ${getEventReadiness(event).colorClass}`}>
-                              {getEventReadiness(event).status}
-                            </span>
-                          )}
-                        </div>
-                        <h3 className="text-xl font-bold truncate text-white">{displayTitle}</h3>
+                      <div className="flex-grow min-w-0 flex flex-col justify-center">
+                        <h3 className="text-[15px] md:text-base font-bold truncate text-neutral-100 leading-snug">{displayTitle}</h3>
                         {showBandSubtitle && (
-                          <p className="text-sm text-neutral-400 truncate flex items-center gap-1">
-                            <Music size={12} className="text-cyan-400" />
+                          <p className="text-[13px] text-neutral-400 truncate leading-snug">
                             {bandNames}
                           </p>
                         )}
-                        <div className="flex items-center gap-4 mt-2 text-xs text-neutral-400">
-                          <div className="flex items-center gap-1">
-                            <Clock size={12} className="text-cyan-400" />
-                            {formatTime(event.start_time)}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <MapPin size={12} className="text-cyan-400" />
-                            {venueName}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="hidden sm:block">
-                        <Button 
-                          variant="secondary"
-                          onClick={() => setSelectedEvent(event)}
-                          className="text-xs"
-                        >
-                          Details
-                        </Button>
+                        <p className="text-[11px] text-neutral-500 truncate leading-snug mt-0.5">
+                          {venueName} <span className="mx-1 opacity-50">•</span> {formatTime(event.start_time)}
+                        </p>
                       </div>
                     </motion.div>
                   );

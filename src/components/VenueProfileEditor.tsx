@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../AuthContext';
 import { useNavigationContext } from '../context/NavigationContext';
 import { Venue, AppEvent } from '../types';
-import { Save, Image as ImageIcon, Loader2, Plus, Trash2, MapPin, Calendar, Clock, Eye } from 'lucide-react';
+import { Save, Image as ImageIcon, Loader2, Plus, Trash2, MapPin, Calendar, Clock, Eye, Info, Phone, Share2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Textarea } from './ui/Textarea';
@@ -14,6 +14,8 @@ import ImageUpload from './ImageUpload';
 import { formatPhoneNumber } from '../lib/phoneFormatter';
 import ProfilePreviewModal from './ProfilePreviewModal';
 import { handleSupabaseError, OperationType } from '../lib/error-handler';
+import { cn } from '../lib/utils';
+import { SearchableSelect } from './ui/SearchableSelect';
 
 export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChange, onSaveSuccess }: { venueId?: string, hideDropdown?: boolean, onDirtyChange?: (dirty: boolean) => void, onSaveSuccess?: () => void }) {
   const { user, profile } = useAuth();
@@ -52,6 +54,9 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+  // Section toggles for mobile progressive disclosure
+  const [expandedSection, setExpandedSection] = useState<string>('basic');
 
   // Track if form is dirty
   useEffect(() => {
@@ -360,386 +365,395 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
     }
   }
 
-  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-neutral-400" /></div>;
+  const toggleSection = (section: string) => {
+    setExpandedSection(expandedSection === section ? '' : section);
+  };
+
+  const SectionHeader = ({ id, title, icon: Icon }: { id: string, title: string, icon: any }) => (
+    <button
+      type="button"
+      onClick={() => toggleSection(id)}
+      className="w-full flex items-center justify-between p-4 bg-neutral-900 border border-neutral-800 rounded-2xl hover:bg-neutral-800 transition-colors"
+    >
+      <div className="flex items-center gap-3">
+        <div className="p-2 bg-neutral-800 rounded-xl text-cyan-400">
+          <Icon size={20} />
+        </div>
+        <span className="font-bold text-white">{title}</span>
+      </div>
+      {expandedSection === id ? <ChevronUp size={20} className="text-neutral-500" /> : <ChevronDown size={20} className="text-neutral-500" />}
+    </button>
+  );
+
+  if (loading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin text-cyan-500" /></div>;
 
   return (
-    <div className="space-y-8">
-      <form onSubmit={handleSave} className="max-w-4xl mx-auto space-y-8 bg-neutral-900 p-8 rounded-3xl border border-neutral-800">
-        <div className="flex items-center justify-between">
-          <h2 className="text-3xl font-bold">Venue Profile</h2>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between sticky top-0 z-10 bg-neutral-950/80 backdrop-blur-xl py-4 border-b border-neutral-900">
+        <div className="flex items-center gap-4">
+          <h2 className="text-2xl font-bold text-white">Edit Venue</h2>
           {venues.length > 1 && !hideDropdown && (
             <select
               value={selectedVenueId || ''}
               onChange={(e) => setSelectedVenueId(e.target.value)}
-              className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-red-600 outline-none"
+              className="bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm focus:ring-2 focus:ring-cyan-500 outline-none text-white max-w-[150px] sm:max-w-xs"
             >
               {venues.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
             </select>
           )}
-          <div className="flex items-center gap-4">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setShowPreview(true)}
-            >
-              <Eye size={20} />
-              <span className="hidden sm:inline">Preview</span>
-            </Button>
-            <Button
-              type="submit"
-              disabled={saving}
-            >
-              {saving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
-              Save Changes
-            </Button>
-          </div>
         </div>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => setShowPreview(true)}
+            className="hidden sm:flex"
+          >
+            <Eye size={18} />
+            Preview
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            size="sm"
+          >
+            {saving ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+            Save
+          </Button>
+        </div>
+      </div>
 
-        {message && (
-          <div className={`p-4 rounded-2xl text-sm font-medium ${
-            message.type === 'success' ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'
-          }`}>
-            {message.text}
-          </div>
-        )}
+      {message && (
+        <div className={`p-4 rounded-2xl text-sm font-medium ${
+          message.type === 'success' ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-red-500/10 text-red-500 border border-red-500/20'
+        }`}>
+          {message.text}
+        </div>
+      )}
 
-        <ProfilePreviewModal 
-          isOpen={showPreview} 
-          onClose={() => setShowPreview(false)} 
-          type="venue" 
-          data={{ ...venue, address: formatAddress(addressParts) }} 
-        />
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Venue Name</label>
-            <Input
-              type="text"
-              required
-              value={venue.name || ''}
-              onChange={(e) => setVenue({ ...venue, name: e.target.value })}
-            />
-          </div>
-          <div className="space-y-4 md:col-span-2">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Address Information</label>
-              <div className="flex bg-neutral-800 p-1 rounded-xl border border-neutral-700">
-                <button
-                  type="button"
-                  onClick={() => setAddressParts({ ...addressParts, country: 'US', state: '' })}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    addressParts.country === 'US' ? 'bg-red-600 text-white' : 'text-neutral-400 hover:text-neutral-300'
-                  }`}
-                >
-                  USA
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAddressParts({ ...addressParts, country: 'CA', state: '' })}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    addressParts.country === 'CA' ? 'bg-red-600 text-white' : 'text-neutral-400 hover:text-neutral-300'
-                  }`}
-                >
-                  CANADA
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2 space-y-2">
-                <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">Street Address</label>
-                <div className="relative">
-                  <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
-                  <Input
-                    type="text"
-                    value={addressParts.street || ''}
-                    onChange={(e) => setAddressParts({ ...addressParts, street: e.target.value })}
-                    className="pl-12"
-                    placeholder="123 Music Ave"
-                  />
-                </div>
-              </div>
-
+      <form onSubmit={handleSave} className="space-y-4 max-w-3xl mx-auto">
+        
+        {/* Basic Info Section */}
+        <div className="space-y-4">
+          <SectionHeader id="basic" title="Basic Info" icon={Info} />
+          {expandedSection === 'basic' && (
+            <div className="p-4 sm:p-6 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-4 animate-in fade-in slide-in-from-top-2">
+              <Input
+                label="Venue Name"
+                type="text"
+                required
+                value={venue.name || ''}
+                onChange={(e) => setVenue({ ...venue, name: e.target.value })}
+                placeholder="e.g. The Bluebird Cafe"
+              />
+              
               <div className="space-y-2">
-                <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">City</label>
-                <Input
-                  type="text"
-                  value={addressParts.city || ''}
-                  onChange={(e) => setAddressParts({ ...addressParts, city: e.target.value })}
-                  placeholder="Nashville"
+                <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Description</label>
+                <Textarea
+                  rows={4}
+                  value={venue.description || ''}
+                  onChange={(e) => setVenue({ ...venue, description: e.target.value })}
+                  placeholder="Tell people about your venue..."
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">
-                    {addressParts.country === 'US' ? 'State' : 'Province'}
-                  </label>
-                  <select
-                    value={addressParts.state || ''}
-                    onChange={(e) => setAddressParts({ ...addressParts, state: e.target.value })}
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-2xl py-3 px-4 text-white focus:ring-2 focus:ring-red-600 outline-none transition-all appearance-none"
-                  >
-                    <option value="">Select...</option>
-                    {(addressParts.country === 'US' ? US_STATES : CA_PROVINCES).map((item) => (
-                      <option key={item.code} value={item.code}>{item.name}</option>
-                    ))}
-                  </select>
-                </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Tech Specs (PA, Lighting, Stage)</label>
+                <Textarea
+                  rows={3}
+                  value={venue.tech_specs || ''}
+                  onChange={(e) => setVenue({ ...venue, tech_specs: e.target.value })}
+                  placeholder="List your PA system, lighting rig, stage dimensions, etc..."
+                />
+              </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">
-                    {addressParts.country === 'US' ? 'Zip Code' : 'Postal Code'}
-                  </label>
-                  <Input
-                    type="text"
-                    value={addressParts.zip || ''}
-                    onChange={(e) => setAddressParts({ ...addressParts, zip: e.target.value })}
-                    placeholder={addressParts.country === 'US' ? '37201' : 'M5V 2T6'}
-                  />
-                </div>
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Food Description</label>
+                <Textarea
+                  rows={2}
+                  value={venue.food_description || ''}
+                  onChange={(e) => setVenue({ ...venue, food_description: e.target.value })}
+                  placeholder="What kind of food do you serve?"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Bag Policy</label>
+                <Textarea
+                  rows={2}
+                  value={venue.bag_policy || ''}
+                  onChange={(e) => setVenue({ ...venue, bag_policy: e.target.value })}
+                  placeholder="e.g. Clear bags only, no backpacks"
+                />
               </div>
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-neutral-400">Phone</label>
-              <Input
-                type="tel"
-                value={venue.phone || ''}
-                onChange={(e) => setVenue({ ...venue, phone: formatPhoneNumber(e.target.value) })}
-                placeholder="(555) 000-0000"
-                className={venue.phone && !validatePhone(venue.phone) ? 'border-red-500/50 focus:ring-red-500' : ''}
-              />
-              {venue.phone && !validatePhone(venue.phone) && (
-                <p className="text-[10px] text-red-500 mt-1 ml-1 font-medium">Area code required (10 digits)</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-neutral-400">Email</label>
-              <Input
-                type="email"
-                value={venue.email || ''}
-                onChange={(e) => setVenue({ ...venue, email: e.target.value })}
-                placeholder="venue@email.com"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <label className="text-sm font-medium text-neutral-400">Venue Logo (Square - 400x400 preferred)</label>
-            <div className="flex items-center gap-6">
-              <div className="w-32 h-32 bg-neutral-800 rounded-2xl overflow-hidden border border-neutral-700 relative group">
-                {venue.logo_url ? (
-                  <>
-                    <img src={venue.logo_url} alt="Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    <button
-                      type="button"
-                      onClick={() => setVenue({ ...venue, logo_url: '' })}
-                      className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all z-10"
-                      title="Delete Logo"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </>
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-neutral-600">
-                    <ImageIcon size={32} />
-                  </div>
-                )}
-              </div>
-              <ImageUpload 
-                type="logo"
-                onUploadComplete={(result) => {
-                  const url = typeof result === 'string' ? result : (result.logo || result.original);
-                  setVenue(prev => ({ ...prev, logo_url: url }));
-                }}
-                className="bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer border border-neutral-700"
-              >
-                Upload Logo
-              </ImageUpload>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <label className="text-sm font-medium text-neutral-400">Hero Banner (Wide - 1920x1080 preferred)</label>
-            <div className="space-y-4">
-              <div className="w-full h-32 bg-neutral-800 rounded-2xl overflow-hidden border border-neutral-700 relative group">
-                {venue.hero_url ? (
-                  <>
-                    <img src={venue.hero_url} alt="Hero" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    <button
-                      type="button"
-                      onClick={() => setVenue({ ...venue, hero_url: '' })}
-                      className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all z-10"
-                      title="Delete Hero Banner"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </>
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-neutral-600">
-                    <ImageIcon size={32} />
-                  </div>
-                )}
-              </div>
-              <ImageUpload 
-                type="hero"
-                onUploadComplete={(result) => {
-                  const pcUrl = typeof result === 'string' ? result : (result.hero_pc || result.original);
-                  setVenue(prev => ({ ...prev, hero_url: pcUrl }));
-                }}
-                className="bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer border border-neutral-700 inline-block"
-              >
-                Upload Hero Banner
-              </ImageUpload>
-            </div>
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-sm font-medium text-neutral-400">Description</label>
-            <Textarea
-              rows={4}
-              value={venue.description || ''}
-              onChange={(e) => setVenue({ ...venue, description: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-sm font-medium text-neutral-400">Bag Policy</label>
-            <Textarea
-              rows={2}
-              value={venue.bag_policy || ''}
-              onChange={(e) => setVenue({ ...venue, bag_policy: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Website</label>
-            <Input
-              type="text"
-              value={venue.website || ''}
-              onChange={(e) => setVenue({ ...venue, website: e.target.value })}
-              placeholder="www.venue.com"
-              className="pl-[4.5rem]"
-            />
-            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 text-sm font-medium pointer-events-none group-focus-within:text-red-500 transition-colors">
-              https://
-            </div>
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">LinkedIn URL</label>
-            <Input
-              type="text"
-              value={venue.linkedin_url || ''}
-              onChange={(e) => setVenue({ ...venue, linkedin_url: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Pinterest URL</label>
-            <Input
-              type="text"
-              value={venue.pinterest_url || ''}
-              onChange={(e) => setVenue({ ...venue, pinterest_url: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">YouTube Channel URL</label>
-            <Input
-              type="text"
-              value={venue.youtube_url || ''}
-              onChange={(e) => setVenue({ ...venue, youtube_url: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Instagram URL</label>
-            <Input
-              type="text"
-              value={venue.instagram_url || ''}
-              onChange={(e) => setVenue({ ...venue, instagram_url: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Apple Music URL</label>
-            <Input
-              type="text"
-              value={venue.apple_music_url || ''}
-              onChange={(e) => setVenue({ ...venue, apple_music_url: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Spotify URL</label>
-            <Input
-              type="text"
-              value={venue.spotify_url || ''}
-              onChange={(e) => setVenue({ ...venue, spotify_url: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Facebook URL</label>
-            <Input
-              type="text"
-              value={venue.facebook_url || ''}
-              onChange={(e) => setVenue({ ...venue, facebook_url: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-neutral-400">Twitter (X) URL</label>
-            <Input
-              type="text"
-              value={venue.twitter_url || ''}
-              onChange={(e) => setVenue({ ...venue, twitter_url: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-sm font-medium text-neutral-400">Food Description</label>
-            <Textarea
-              rows={2}
-              value={venue.food_description || ''}
-              onChange={(e) => setVenue({ ...venue, food_description: e.target.value })}
-            />
-          </div>
-          <div className="space-y-2 md:col-span-2">
-            <label className="text-sm font-medium text-neutral-400">Tech Specs (PA, Lighting, Stage)</label>
-            <Textarea
-              rows={4}
-              value={venue.tech_specs || ''}
-              onChange={(e) => setVenue({ ...venue, tech_specs: e.target.value })}
-              placeholder="List your PA system, lighting rig, stage dimensions, etc..."
-            />
-          </div>
+          )}
         </div>
 
+        {/* Location & Contact Section */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-medium text-neutral-400">Images (Up to 5)</label>
-            <span className="text-xs text-neutral-400">{venue.images?.length || 0} / 5</span>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {venue.images?.map((img, idx) => (
-              <div key={idx} className="aspect-square bg-neutral-800 rounded-2xl relative group overflow-hidden">
-                <img src={img} alt="Venue" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                <button
-                  type="button"
-                  onClick={() => setVenue(prev => ({ ...prev, images: prev.images?.filter((_, i) => i !== idx) }))}
-                  className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all z-10"
-                  title="Delete Image"
-                >
-                  <Trash2 size={14} />
-                </button>
+          <SectionHeader id="contact" title="Location & Contact" icon={Phone} />
+          {expandedSection === 'contact' && (
+            <div className="p-4 sm:p-6 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-6 animate-in fade-in slide-in-from-top-2">
+              
+              {/* Address */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Address</label>
+                  <div className="flex bg-neutral-800 p-1 rounded-xl border border-neutral-700">
+                    <button
+                      type="button"
+                      onClick={() => setAddressParts({ ...addressParts, country: 'US', state: '' })}
+                      className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all", addressParts.country === 'US' ? 'bg-cyan-500 text-white' : 'text-neutral-400 hover:text-neutral-300')}
+                    >
+                      USA
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAddressParts({ ...addressParts, country: 'CA', state: '' })}
+                      className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all", addressParts.country === 'CA' ? 'bg-cyan-500 text-white' : 'text-neutral-400 hover:text-neutral-300')}
+                    >
+                      CANADA
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2 space-y-2">
+                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">Street Address</label>
+                    <div className="relative">
+                      <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
+                      <Input
+                        type="text"
+                        value={addressParts.street || ''}
+                        onChange={(e) => setAddressParts({ ...addressParts, street: e.target.value })}
+                        className="pl-12"
+                        placeholder="123 Music Ave"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">City</label>
+                    <Input
+                      type="text"
+                      value={addressParts.city || ''}
+                      onChange={(e) => setAddressParts({ ...addressParts, city: e.target.value })}
+                      placeholder="Nashville"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <SearchableSelect
+                      label={addressParts.country === 'US' ? 'State' : 'Province'}
+                      value={addressParts.state || ''}
+                      onChange={(val) => setAddressParts({ ...addressParts, state: val })}
+                      options={(addressParts.country === 'US' ? US_STATES : CA_PROVINCES).map(s => ({ id: s.code, name: s.name }))}
+                      placeholder="Select..."
+                    />
+
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">
+                        {addressParts.country === 'US' ? 'Zip Code' : 'Postal Code'}
+                      </label>
+                      <Input
+                        type="text"
+                        value={addressParts.zip || ''}
+                        onChange={(e) => setAddressParts({ ...addressParts, zip: e.target.value })}
+                        placeholder={addressParts.country === 'US' ? '37201' : 'M5V 2T6'}
+                      />
+                    </div>
+                  </div>
+                </div>
               </div>
-            ))}
-            {(venue.images?.length || 0) < 5 && (
-              <ImageUpload 
-                type="gallery"
-                onUploadComplete={(url) => {
-                  if (typeof url === 'string') {
-                    setVenue(prev => ({ ...prev, images: [...(prev.images || []), url] }));
-                  }
-                }}
-                className="aspect-square border-2 border-dashed border-neutral-700 rounded-2xl flex flex-col items-center justify-center text-neutral-400 hover:border-cyan-400 hover:text-cyan-400 transition-all cursor-pointer"
-              />
-            )}
-          </div>
+
+              <div className="h-px bg-neutral-800 w-full" />
+
+              {/* Contact */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Input
+                    label="Phone"
+                    type="tel"
+                    value={venue.phone || ''}
+                    onChange={(e) => setVenue({ ...venue, phone: formatPhoneNumber(e.target.value) })}
+                    placeholder="(555) 000-0000"
+                    className={venue.phone && !validatePhone(venue.phone) ? 'border-red-500/50 focus:ring-red-500' : ''}
+                  />
+                  {venue.phone && !validatePhone(venue.phone) && (
+                    <p className="text-[10px] text-red-500 mt-1 ml-1 font-medium">Area code required (10 digits)</p>
+                  )}
+                </div>
+                <Input
+                  label="Email"
+                  type="email"
+                  value={venue.email || ''}
+                  onChange={(e) => setVenue({ ...venue, email: e.target.value })}
+                  placeholder="venue@email.com"
+                />
+                <div className="sm:col-span-2 space-y-2">
+                  <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Website</label>
+                  <div className="relative">
+                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400 text-sm font-medium pointer-events-none group-focus-within:text-cyan-500 transition-colors">
+                      https://
+                    </div>
+                    <input
+                      type="text"
+                      value={venue.website || ''}
+                      onChange={(e) => setVenue({ ...venue, website: e.target.value })}
+                      placeholder="www.venue.com"
+                      className="w-full bg-neutral-800 border border-neutral-700 rounded-xl py-3 pl-[4.5rem] pr-4 text-white focus:ring-2 focus:ring-cyan-500 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
+
+        {/* Media Section */}
+        <div className="space-y-4">
+          <SectionHeader id="media" title="Media & Images" icon={ImageIcon} />
+          {expandedSection === 'media' && (
+            <div className="p-4 sm:p-6 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-8 animate-in fade-in slide-in-from-top-2">
+              
+              {/* Logo */}
+              <div className="space-y-4">
+                <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Venue Logo (Square)</label>
+                <div className="flex items-center gap-6">
+                  <div className="w-24 h-24 sm:w-32 sm:h-32 bg-neutral-800 rounded-2xl overflow-hidden border border-neutral-700 relative group shrink-0">
+                    {venue.logo_url ? (
+                      <>
+                        <img src={venue.logo_url} alt="Logo" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        <button
+                          type="button"
+                          onClick={() => setVenue({ ...venue, logo_url: '' })}
+                          className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all z-10"
+                          title="Delete Logo"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-neutral-600">
+                        <ImageIcon size={32} />
+                      </div>
+                    )}
+                  </div>
+                  <ImageUpload 
+                    type="logo"
+                    onUploadComplete={(result) => {
+                      const url = typeof result === 'string' ? result : (result.logo || result.original);
+                      setVenue(prev => ({ ...prev, logo_url: url }));
+                    }}
+                    className="bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer border border-neutral-700"
+                  >
+                    Upload Logo
+                  </ImageUpload>
+                </div>
+              </div>
+
+              <div className="h-px bg-neutral-800 w-full" />
+
+              {/* Hero */}
+              <div className="space-y-4">
+                <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Hero Banner (Wide)</label>
+                <div className="space-y-4">
+                  <div className="w-full aspect-video sm:h-48 bg-neutral-800 rounded-2xl overflow-hidden border border-neutral-700 relative group">
+                    {venue.hero_url ? (
+                      <>
+                        <img src={venue.hero_url} alt="Hero" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        <button
+                          type="button"
+                          onClick={() => setVenue({ ...venue, hero_url: '' })}
+                          className="absolute top-2 right-2 p-2 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all z-10"
+                          title="Delete Hero Banner"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </>
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-neutral-600">
+                        <ImageIcon size={32} />
+                      </div>
+                    )}
+                  </div>
+                  <ImageUpload 
+                    type="hero"
+                    onUploadComplete={(result) => {
+                      const pcUrl = typeof result === 'string' ? result : (result.hero_pc || result.original);
+                      setVenue(prev => ({ ...prev, hero_url: pcUrl }));
+                    }}
+                    className="bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer border border-neutral-700 inline-block"
+                  >
+                    Upload Hero Banner
+                  </ImageUpload>
+                </div>
+              </div>
+
+              <div className="h-px bg-neutral-800 w-full" />
+
+              {/* Gallery */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Gallery Images</label>
+                  <span className="text-xs text-neutral-400">{venue.images?.length || 0} / 5</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+                  {venue.images?.map((img, idx) => (
+                    <div key={idx} className="aspect-square bg-neutral-800 rounded-2xl relative group overflow-hidden">
+                      <img src={img} alt="Venue" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      <button
+                        type="button"
+                        onClick={() => setVenue(prev => ({ ...prev, images: prev.images?.filter((_, i) => i !== idx) }))}
+                        className="absolute top-2 right-2 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all z-10"
+                        title="Delete Image"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                  {(venue.images?.length || 0) < 5 && (
+                    <ImageUpload 
+                      type="gallery"
+                      onUploadComplete={(url) => {
+                        if (typeof url === 'string') {
+                          setVenue(prev => ({ ...prev, images: [...(prev.images || []), url] }));
+                        }
+                      }}
+                      className="aspect-square border-2 border-dashed border-neutral-700 rounded-2xl flex flex-col items-center justify-center text-neutral-400 hover:border-cyan-400 hover:text-cyan-400 transition-all cursor-pointer"
+                    >
+                      <Plus size={24} />
+                    </ImageUpload>
+                  )}
+                </div>
+              </div>
+
+            </div>
+          )}
+        </div>
+
+        {/* Social Links Section */}
+        <div className="space-y-4">
+          <SectionHeader id="social" title="Social Links" icon={Share2} />
+          {expandedSection === 'social' && (
+            <div className="p-4 sm:p-6 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-4 animate-in fade-in slide-in-from-top-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input label="Instagram URL" type="url" value={venue.instagram_url || ''} onChange={(e) => setVenue({ ...venue, instagram_url: e.target.value })} placeholder="https://instagram.com/..." />
+                <Input label="Facebook URL" type="url" value={venue.facebook_url || ''} onChange={(e) => setVenue({ ...venue, facebook_url: e.target.value })} placeholder="https://facebook.com/..." />
+                <Input label="Twitter (X) URL" type="url" value={venue.twitter_url || ''} onChange={(e) => setVenue({ ...venue, twitter_url: e.target.value })} placeholder="https://twitter.com/..." />
+                <Input label="YouTube Channel URL" type="url" value={venue.youtube_url || ''} onChange={(e) => setVenue({ ...venue, youtube_url: e.target.value })} placeholder="https://youtube.com/..." />
+                <Input label="Spotify URL" type="url" value={venue.spotify_url || ''} onChange={(e) => setVenue({ ...venue, spotify_url: e.target.value })} placeholder="https://open.spotify.com/..." />
+                <Input label="Apple Music URL" type="url" value={venue.apple_music_url || ''} onChange={(e) => setVenue({ ...venue, apple_music_url: e.target.value })} placeholder="https://music.apple.com/..." />
+                <Input label="LinkedIn URL" type="url" value={venue.linkedin_url || ''} onChange={(e) => setVenue({ ...venue, linkedin_url: e.target.value })} placeholder="https://linkedin.com/..." />
+                <Input label="Pinterest URL" type="url" value={venue.pinterest_url || ''} onChange={(e) => setVenue({ ...venue, pinterest_url: e.target.value })} placeholder="https://pinterest.com/..." />
+              </div>
+            </div>
+          )}
+        </div>
+
       </form>
 
       {futureEvents.length > 0 && (
@@ -753,4 +767,3 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
     </div>
   );
 }
-

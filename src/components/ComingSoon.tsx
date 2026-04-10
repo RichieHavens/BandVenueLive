@@ -5,9 +5,9 @@ export default function ComingSoon({ onUnlock }: { onUnlock: () => void }) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-neutral-950 text-white p-6">
       <img 
-        src="/bandvenue_navbar_micro_final.png" 
+        src="/bandvenue_transparent.png" 
         alt="BandVenue Logo" 
-        className="h-24 w-auto mb-8"
+        className="h-24 w-auto mb-8 max-w-full object-contain"
         referrerPolicy="no-referrer"
       />
       <h1 className="text-4xl font-bold mb-2">Coming Soon</h1>

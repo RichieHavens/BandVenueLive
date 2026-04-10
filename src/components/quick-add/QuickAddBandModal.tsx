@@ -10,6 +10,7 @@ import { useNavigationContext } from '../../context/NavigationContext';
 import { useAuth } from '../../AuthContext';
 import { US_STATES, CA_PROVINCES } from '../../lib/geo';
 import { theme } from '../../lib/theme';
+import { SearchableSelect } from '../ui/SearchableSelect';
 
 interface QuickAddBandModalProps {
   isOpen: boolean;
@@ -110,19 +111,13 @@ export default function QuickAddBandModal({ isOpen, onClose, onSuccess }: QuickA
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <Input label="City" value={city} onChange={(e) => setCity(e.target.value)} className="py-1.5 px-3" />
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">State/Province</label>
-                  <select
-                    value={state}
-                    onChange={(e) => setState(e.target.value)}
-                    className={theme.input + " py-1.5 px-2 text-sm"}
-                  >
-                    <option value="">Select...</option>
-                    {(country === 'US' ? US_STATES : CA_PROVINCES).map((item) => (
-                      <option key={item.code} value={item.code}>{item.name}</option>
-                    ))}
-                  </select>
-                </div>
+                <SearchableSelect
+                  label="State/Province"
+                  value={state}
+                  onChange={setState}
+                  options={(country === 'US' ? US_STATES : CA_PROVINCES).map(s => ({ id: s.code, name: s.name }))}
+                  placeholder="Select..."
+                />
               </div>
             </div>
 
