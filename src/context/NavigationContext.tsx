@@ -19,9 +19,6 @@ interface NavigationContextType {
   handleTabChange: (tabId: string) => void;
   unsavedChanges: boolean;
   setUnsavedChanges: (dirty: boolean) => void;
-  pendingTab: string | null;
-  setPendingTab: (tab: string | null) => void;
-  confirmNavigation: () => Promise<void>;
   selectedBandId: string | null;
   setSelectedBandId: (id: string | null) => void;
   selectedEventId: string | null;
@@ -39,7 +36,7 @@ interface NavigationContextType {
 const NavigationContext = createContext<NavigationContextType | undefined>(undefined);
 
 export function NavigationProvider({ children }: { children: React.ReactNode }) {
-  const { user, profile, loading, signOut, activeRole } = useAuth();
+  const { user, profile, loading, signOut, activeRole, isSuperAdmin, isBandManager, isVenueManager, isMusician } = useAuth();
   const [activeTab, setActiveTabState] = React.useState(() => {
     const saved = localStorage.getItem('bandvenue_active_tab');
     if (saved) return saved;
@@ -100,20 +97,19 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
       
       // Force role-based tab if we are on the placeholder dashboard or default events tab
       if (!savedTab || activeTab === 'events' || activeTab === 'dashboard' || savedTab === 'dashboard') {
-        if (activeRole === 'venue_manager') {
+        if (activeRole === 'venue_manager' && isVenueManager) {
           setActiveTab('venue-manager');
-        } else if (activeRole === 'band_manager') {
+        } else if (activeRole === 'band_manager' && isBandManager) {
           setActiveTab('band-manager');
-        } else if (activeRole === 'admin') {
-          setActiveTab('admin');
+        } else if (profile?.is_super_admin === true) {
+          setActiveTab('super_admin');
         } else {
           setActiveTab('dashboard');
         }
       }
     }
-  }, [user, loading, activeRole, activeTab]);
+  }, [user, loading, activeRole, activeTab, isVenueManager, isBandManager, isSuperAdmin]);
   const [unsavedChanges, setUnsavedChanges] = React.useState(false);
-  const [pendingTab, setPendingTab] = React.useState<string | null>(null);
   
   console.log('NavigationProvider initialized', { user: !!user, profile: !!profile, loading });
 
@@ -131,16 +127,16 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
     }
 
     // Role-specific dashboard
-    if (activeRole === 'admin') {
-      tabs.push({ id: 'admin', label: 'Admin Dashboard', icon: ShieldCheck });
+    if (profile?.is_super_admin === true) {
+      tabs.push({ id: 'super_admin', label: 'Admin Dashboard', icon: ShieldCheck });
       tabs.push({ id: 'role-requests', label: 'Role Requests', icon: Users });
       tabs.push({ id: 'syndication', label: 'Syndication', icon: Globe });
       tabs.push({ id: 'venue-manager', label: 'Venue Manager', icon: LayoutDashboard });
       tabs.push({ id: 'band-manager', label: 'Band Manager', icon: Music });
       tabs.push({ id: 'super-admin', label: 'Super Admin', icon: ShieldCheck });
-    } else if (activeRole === 'venue_manager') {
+    } else if (activeRole === 'venue_manager' && isVenueManager) {
       tabs.push({ id: 'venue-manager', label: 'Venue Manager', icon: LayoutDashboard });
-    } else if (activeRole === 'band_manager') {
+    } else if (activeRole === 'band_manager' && isBandManager) {
       tabs.push({ id: 'band-manager', label: 'Dashboard', icon: LayoutDashboard });
     } else {
       tabs.push({ id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard });
@@ -150,20 +146,31 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
     tabs.push({ id: 'my-profile', label: 'My Profile', icon: UserCircle });
     tabs.push({ id: 'my-reports', label: 'My Reports', icon: Calendar });
 
-    if (activeRole === 'guest') {
+    if (activeRole === 'registered_guest') {
       tabs.push({ id: 'favorites', label: 'My Favorites', icon: Heart });
     }
 
-    if (activeRole === 'syndication_manager') {
+    // Promoter role might need its own flag later
+    if (activeRole === 'promoter') {
       tabs.push({ id: 'syndication', label: 'Syndication', icon: Globe });
     }
 
     return tabs;
-  }, [user, profile, loading, activeRole]);
+  }, [user, profile, loading, activeRole, isSuperAdmin, isBandManager, isVenueManager]);
 
   const handleTabChange = async (tabId: string) => {
     if (unsavedChanges) {
-      setPendingTab(tabId);
+      if (window.confirm('You have unsaved changes. Are you sure you want to leave?')) {
+        setUnsavedChanges(false);
+        if (tabId === 'logout') {
+          localStorage.removeItem('bandvenue_active_tab');
+          localStorage.removeItem('active_role');
+          await signOut();
+          setActiveTab('events');
+        } else {
+          setActiveTab(tabId);
+        }
+      }
     } else if (tabId === 'logout') {
       localStorage.removeItem('bandvenue_active_tab');
       localStorage.removeItem('active_role');
@@ -171,22 +178,6 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
       setActiveTab('events');
     } else {
       setActiveTab(tabId);
-    }
-  };
-
-  const confirmNavigation = async () => {
-    if (pendingTab) {
-      const target = pendingTab;
-      setUnsavedChanges(false);
-      setPendingTab(null);
-      if (target === 'logout') {
-        localStorage.removeItem('bandvenue_active_tab');
-        localStorage.removeItem('active_role');
-        await signOut();
-        setActiveTab('events');
-      } else {
-        setActiveTab(target);
-      }
     }
   };
 
@@ -199,9 +190,6 @@ export function NavigationProvider({ children }: { children: React.ReactNode }) 
       handleTabChange,
       unsavedChanges,
       setUnsavedChanges,
-      pendingTab,
-      setPendingTab,
-      confirmNavigation,
       selectedBandId,
       setSelectedBandId,
       selectedEventId,

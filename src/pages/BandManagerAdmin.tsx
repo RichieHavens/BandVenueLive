@@ -25,7 +25,7 @@ export function BandManagerAdmin() {
         try {
           // Fetch bands where the user is the manager_id
           const { data, error } = await supabase
-            .from('bands')
+            .from('bands_ordered')
             .select('*')
             .eq('manager_id', profile.id)
             .order('name');
@@ -52,7 +52,7 @@ export function BandManagerAdmin() {
   const selectedBand = bands.find(b => b.id === bandId);
   const filteredBands = bands.filter(b => b.name.toLowerCase().includes(search.toLowerCase()));
 
-  if (activeRole !== 'band_manager' && activeRole !== 'admin') {
+  if (activeRole !== 'band_manager' && activeRole !== 'super_admin') {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-8">
         <div className="bg-red-600/10 p-6 rounded-3xl mb-6">

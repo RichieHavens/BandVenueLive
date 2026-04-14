@@ -1,0 +1,99 @@
+src/pages/BandManagerAdmin.tsx:  if (activeRole !== 'band_manager' && activeRole !== 'super_admin') {
+src/pages/AdminRoleRequestsView.tsx:        .select('roles')
+src/pages/AdminRoleRequestsView.tsx:      if (profile && !profile.roles.includes(role)) {
+src/pages/AdminRoleRequestsView.tsx:            roles: [...profile.roles, role],
+src/pages/AdminRoleRequestsView.tsx:            roles: [...profile.roles, role],
+src/pages/AdminView.tsx:  if (activeRole !== 'super_admin') {
+src/pages/AdminView.tsx:          You do not have administrative privileges to access this dashboard. 
+src/pages/AdminView.tsx:          If you believe this is an error, please contact the system administrator.
+src/pages/AdminView.tsx:              <p className="text-neutral-400 max-w-md mx-auto">Perform administrative tasks and manage system data.</p>
+src/lib/utils.ts:export const isBusinessPartner = (roles: UserRole[] | UserRole): boolean => {
+src/lib/utils.ts:  const roleArray = Array.isArray(roles) ? roles : [roles];
+src/lib/utils.ts:export const getPriorityDefaultRole = (roles: UserRole[]): UserRole => {
+src/lib/utils.ts:  if (roles.includes('super_admin')) return 'super_admin';
+src/lib/utils.ts:  if (roles.includes('venue_manager')) return 'venue_manager';
+src/lib/utils.ts:  if (roles.includes('band_manager')) return 'band_manager';
+src/lib/utils.ts:  if (roles.includes('musician')) return 'musician';
+src/lib/utils.ts:  if (roles.includes('promoter')) return 'promoter';
+src/components/ProfilePreviewModal.tsx:              {data.roles?.includes('musician') && data.musicianData && (
+src/components/BandMembersManager.tsx:          .select('id, roles')
+src/components/BandMembersManager.tsx:          if (!existingPerson.roles.includes('musician')) {
+src/components/BandMembersManager.tsx:            const newRoles = [...existingPerson.roles, 'musician'];
+src/components/BandMembersManager.tsx:              roles: newRoles,
+src/components/BandMembersManager.tsx:              roles: ['musician'],
+src/components/SupabaseErrorBoundary.tsx:                ? "You don't have the required permissions to perform this action or view this data. Please check your account roles."
+src/components/Navigation.tsx:    super_admin: 'Super Admin',
+src/components/Navigation.tsx:      const dashboardTab = managementTabs.find(t => t.id === 'venue-manager' || t.id === 'band-manager' || t.id === 'super_admin' || t.id === 'dashboard');
+src/components/Navigation.tsx:                  {/* Role Switcher in Menu (Only if multiple roles) */}
+src/components/PeopleManager.tsx:  const ALL_ROLES: UserRole[] = ['venue_manager', 'band_manager', 'musician', 'registered_guest', 'promoter', 'super_admin'];
+src/components/PeopleManager.tsx:      setIsSuperAdmin(editingPerson.is_super_admin || false);
+src/components/PeopleManager.tsx:        is_super_admin: isSuperAdmin,
+src/components/PeopleManager.tsx:          is_super_admin: isSuperAdmin,
+src/components/PeopleManager.tsx:    if (roleFilter === 'super_admin') return matchesSearch && p.is_super_admin;
+src/components/PeopleManager.tsx:        setSelectedRoles(data.roles || ['registered_guest']);
+src/components/PeopleManager.tsx:                        {role === 'super_admin' ? 'Super Admin' : 
+src/components/PeopleManager.tsx:                {person.is_super_admin && (
+src/components/EventManager.tsx:      if (!bandId && !venueId && profile?.roles.includes('venue_manager')) {
+src/components/ProfileManager.tsx:      if (JSON.stringify(selectedRoles.sort()) !== JSON.stringify((profile?.roles || []).sort())) changes.roles = selectedRoles;
+src/components/ProfileManager.tsx:      const rolesToSave = [...selectedRoles];
+src/components/ProfileManager.tsx:      if (profile?.roles.includes('super_admin') && !rolesToSave.includes('super_admin')) rolesToSave.push('super_admin');
+src/components/ProfileManager.tsx:      if (profile?.roles.includes('promoter') && !rolesToSave.includes('promoter')) rolesToSave.push('promoter');
+src/components/ProfileManager.tsx:        roles: rolesToSave,
+src/components/ProfileManager.tsx:        roles: rolesToSave,
+src/components/ProfileManager.tsx:      // Don't allow removing the last public role if not an admin
+src/components/ProfileManager.tsx:      if (currentPublicRoles.length <= 1 && !profile?.roles.includes('super_admin')) {
+src/components/ProfileManager.tsx:              <SectionHeader id="roles" title="Current System Roles" icon={Shield} />
+src/components/ProfileManager.tsx:              {expandedSection === 'roles' && (
+src/components/ProfileManager.tsx:                      <p className="text-sm text-neutral-400">No system roles currently assigned.</p>
+src/components/ProfileManager.tsx:                  <p className="text-neutral-400 text-sm">Select the roles you would like to request access for. An admin will review your request.</p>
+src/components/ProfileManager.tsx:              <SectionHeader id="account_roles" title="Account Roles" icon={Settings} />
+src/components/ProfileManager.tsx:              {expandedSection === 'account_roles' && (
+src/components/ProfileManager.tsx:                        <span className="text-white font-bold ml-1">Promoter</span>, <span className="text-white font-bold">Venue Manager</span>, and <span className="text-white font-bold">Band Manager</span> roles require admin assignment.
+src/components/ProfileManager.tsx:                    {/* Show assigned business partner roles that are not self-assignable */}
+src/components/ProfileManager.tsx:                      <p className="text-xs text-neutral-400">Choose which role should be active by default when you log in. You can always switch roles using the switcher in the navigation bar.</p>
+src/components/ProfileManager.tsx:                          const roleInfo = publicRoles.find(pr => pr.id === roleId) || (roleId === 'super_admin' ? { label: 'Super Admin' } : { label: roleId.replace('_', ' ') });
+src/components/ProfileManager.tsx:          roles: selectedRoles,
+src/components/EventProfileEditor.tsx:  const isAdmin = profile?.roles.includes('super_admin');
+src/components/EventProfileEditor.tsx:          {isPast && !isAdmin && <span className="text-red-500 text-xs font-bold uppercase tracking-wider">Past event - not editable</span>}
+src/components/EventProfileEditor.tsx:          {(!isPast || isAdmin) && (
+src/components/EventProfileEditor.tsx:                disabled={isPast && !isAdmin}
+src/components/EventProfileEditor.tsx:                    disabled={isPast && !isAdmin}
+src/components/EventProfileEditor.tsx:                  disabled={isPast && !isAdmin}
+src/components/EventProfileEditor.tsx:                    {(!isPast || isAdmin) && (
+src/components/EventProfileEditor.tsx:              {(!isPast || isAdmin) && (
+src/components/EventProfileEditor.tsx:                  disabled={isPast && !isAdmin}
+src/components/EventProfileEditor.tsx:                  disabled={isPast && !isAdmin}
+src/components/EventProfileEditor.tsx:                  disabled={isPast && !isAdmin}
+src/components/EventProfileEditor.tsx:                  disabled={isPast && !isAdmin}
+src/components/EventProfileEditor.tsx:                    disabled={isPast && !isAdmin}
+src/AuthContext.tsx:    const roles: UserRole[] = ['registered_guest'];
+src/AuthContext.tsx:    if (profile?.is_super_admin) roles.push('super_admin');
+src/AuthContext.tsx:    if (managedBands.length > 0) roles.push('band_manager');
+src/AuthContext.tsx:    if (managedVenues.length > 0) roles.push('venue_manager');
+src/AuthContext.tsx:    if (isMusician) roles.push('musician');
+src/AuthContext.tsx:    return roles;
+src/AuthContext.tsx:  }, [profile?.is_super_admin, managedBands.length, managedVenues.length, isMusician]);
+src/AuthContext.tsx:          .from('roles_master')
+src/AuthContext.tsx:            is_super_admin: personData?.is_super_admin || false
+src/AuthContext.tsx:          if (mergedProfile.is_super_admin !== personData.is_super_admin) {
+src/AuthContext.tsx:            mergedProfile.is_super_admin = personData.is_super_admin;
+src/AuthContext.tsx:        // Inject super_admin for superuser email
+src/AuthContext.tsx:        if (userEmail === 'rickheavern@gmail.com' && !mergedProfile.is_super_admin) {
+src/AuthContext.tsx:          mergedProfile.is_super_admin = true;
+src/AuthContext.tsx:            is_super_admin: mergedProfile.is_super_admin,
+src/AuthContext.tsx:        // Determine available roles for this session
+src/AuthContext.tsx:        if (mergedProfile.is_super_admin) currentAvailableRoles.push('super_admin');
+src/AuthContext.tsx:  // Set active role based on available roles
+src/AuthContext.tsx:    const rolePriority: UserRole[] = ['registered_guest', 'musician', 'band_manager', 'venue_manager', 'promoter', 'super_admin'];
+src/AuthContext.tsx:      isSuperAdmin: profile?.is_super_admin || false,
+src/hooks/useNavigation.ts:      tabs.push({ id: 'super_admin', label: 'Data Admin', icon: ShieldCheck });
+src/context/NavigationContext.tsx:        } else if (activeRole === 'super_admin' && isSuperAdmin) {
+src/context/NavigationContext.tsx:          setActiveTab('super_admin');
+src/context/NavigationContext.tsx:    if (activeRole === 'super_admin' && isSuperAdmin) {
+src/context/NavigationContext.tsx:      tabs.push({ id: 'super_admin', label: 'Admin Dashboard', icon: ShieldCheck });
+src/context/NavigationContext.tsx:      tabs.push({ id: 'super-admin', label: 'Super Admin', icon: ShieldCheck });
+src/App.tsx:            {activeTab === 'super_admin' && <AdminView />}
+src/App.tsx:            {activeTab === 'super-admin' && <SuperAdminDashboard />}
+src/types.ts:export type UserRole = 'venue_manager' | 'band_manager' | 'musician' | 'registered_guest' | 'promoter' | 'super_admin';
+src/types.ts:  is_super_admin: boolean;
+src/types.ts:  is_super_admin?: boolean;

@@ -19,7 +19,7 @@ interface QuickAddBandModalProps {
 }
 
 export default function QuickAddBandModal({ isOpen, onClose, onSuccess }: QuickAddBandModalProps) {
-  const { user } = useAuth();
+  const { user, personId } = useAuth();
   const { setActiveTab, setSelectedBandId } = useNavigationContext();
   const [name, setName] = useState('');
   const [managerName, setManagerName] = useState('');
@@ -27,12 +27,12 @@ export default function QuickAddBandModal({ isOpen, onClose, onSuccess }: QuickA
   const [city, setCity] = useState('');
   const [state, setState] = useState('');
   const [country, setCountry] = useState<'US' | 'CA'>('US');
-  const [geography, setGeography] = useState<'Local' | 'Regional' | 'National'>('Local');
+  const [travelRegion, setTravelRegion] = useState<'Local' | 'Regional' | 'National'>('Local');
   const [saving, setSaving] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState(false);
 
   const checkDuplicate = async (bandName: string) => {
-    const { data } = await supabase.from('bands').select('name').ilike('name', bandName).maybeSingle();
+    const { data } = await supabase.from('bands_ordered').select('name').ilike('name', bandName).maybeSingle();
     setDuplicateWarning(!!data);
   };
 
@@ -47,16 +47,19 @@ export default function QuickAddBandModal({ isOpen, onClose, onSuccess }: QuickA
     try {
       const { error, data } = await supabase.from('bands').insert({
         name,
-        manager_first_name: first || '',
-        manager_last_name: last || '',
+        unlinked_manager_first_name: first || '',
+        unlinked_manager_last_name: last || '',
         description,
         city,
         state,
         country,
-        geography,
+        travel_region: travelRegion,
         // manager_id: user?.id, // Removed default manager_id
         is_confirmed: false,
         is_published: false,
+        created_by_id: personId,
+        updated_at: new Date().toISOString(),
+        updated_by_id: personId
       }).select().single();
 
       if (error) throw error;
@@ -72,7 +75,7 @@ export default function QuickAddBandModal({ isOpen, onClose, onSuccess }: QuickA
         setCity('');
         setState('');
         setCountry('US');
-        setGeography('Local');
+        setTravelRegion('Local');
       } else if (action === 'open') {
         setSelectedBandId(data.id);
         setActiveTab('my-band');
@@ -115,10 +118,10 @@ export default function QuickAddBandModal({ isOpen, onClose, onSuccess }: QuickA
               <div className="grid grid-cols-2 gap-3">
                 <Input label="City" value={city} onChange={(e) => setCity(e.target.value)} className="py-1.5 px-3" />
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">Geography</label>
+                  <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">Travel Region</label>
                   <select
-                    value={geography}
-                    onChange={(e) => setGeography(e.target.value as 'Local' | 'Regional' | 'National')}
+                    value={travelRegion}
+                    onChange={(e) => setTravelRegion(e.target.value as 'Local' | 'Regional' | 'National')}
                     className="w-full bg-neutral-950 border border-neutral-700 rounded-xl py-2 px-3 text-white focus:ring-2 focus:ring-blue-600 outline-none transition-all placeholder:text-neutral-600 text-sm"
                   >
                     <option value="Local">Local</option>

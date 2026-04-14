@@ -22,7 +22,7 @@ import { ScraperView } from './ScraperView';
 import { formatDate, formatTime } from '../lib/utils';
 
 export function AdminView() {
-  const { user, profile, activeRole, refreshProfile } = useAuth();
+  const { user, profile, personId, activeRole, refreshProfile } = useAuth();
   const { recentRecords, setSelectedBandId, setSelectedEventId, setSelectedVenueId, setSelectedPersonId } = useNavigationContext();
   const [activeSubTab, setActiveSubTab] = useState('venues');
   const [isRecentOpen, setIsRecentOpen] = useState(false);
@@ -51,7 +51,7 @@ export function AdminView() {
         matchesFilter = !!(v as any).is_archived;
       } else {
         if ((v as any).is_archived) return false;
-        if (venueFilter === 'missing_address') matchesFilter = !v.address;
+        if (venueFilter === 'missing_address') matchesFilter = !v.address_line1 && !v.city && !v.state;
         if (venueFilter === 'missing_phone') matchesFilter = !v.phone;
         if (venueFilter === 'missing_email') matchesFilter = !v.email;
       }
@@ -240,7 +240,11 @@ export function AdminView() {
         message: 'Are you sure you want to restore this band?',
         onConfirm: async () => {
           try {
-            const { error } = await supabase.from('bands').update({ is_archived: false }).eq('id', id);
+            const { error } = await supabase.from('bands').update({ 
+              is_archived: false,
+              updated_at: new Date().toISOString(),
+              updated_by_id: personId
+            }).eq('id', id);
             if (error) throw error;
             fetchBands();
           } catch (error: any) {
@@ -272,7 +276,11 @@ export function AdminView() {
         onConfirm: async () => {
           try {
             if (hasActs) {
-              const { error } = await supabase.from('bands').update({ is_archived: true }).eq('id', id);
+              const { error } = await supabase.from('bands').update({ 
+                is_archived: true,
+                updated_at: new Date().toISOString(),
+                updated_by_id: personId
+              }).eq('id', id);
               if (error) throw error;
             } else {
               const { error } = await supabase.from('bands').delete().eq('id', id);
@@ -299,7 +307,11 @@ export function AdminView() {
         message: 'Are you sure you want to restore this venue?',
         onConfirm: async () => {
           try {
-            const { error } = await supabase.from('venues').update({ is_archived: false }).eq('id', id);
+            const { error } = await supabase.from('venues').update({ 
+              is_archived: false,
+              updated_at: new Date().toISOString(),
+              updated_by_id: personId
+            }).eq('id', id);
             if (error) throw error;
             fetchVenues();
           } catch (error: any) {
@@ -331,7 +343,11 @@ export function AdminView() {
         onConfirm: async () => {
           try {
             if (hasEvents) {
-              const { error } = await supabase.from('venues').update({ is_archived: true }).eq('id', id);
+              const { error } = await supabase.from('venues').update({ 
+                is_archived: true,
+                updated_at: new Date().toISOString(),
+                updated_by_id: personId
+              }).eq('id', id);
               if (error) throw error;
             } else {
               const { error } = await supabase.from('venues').delete().eq('id', id);
@@ -363,7 +379,7 @@ export function AdminView() {
     setLoadingVenues(true);
     const { data } = await supabase
       .from('venues')
-      .select('*, profiles!updated_by(first_name, last_name, email), manager:profiles!manager_id(first_name, last_name)')
+      .select('*, people!updated_by_id(first_name, last_name, email), manager:profiles!manager_id(first_name, last_name)')
       .order('name');
     if (data) setVenues(data);
     setLoadingVenues(false);
@@ -372,8 +388,8 @@ export function AdminView() {
   async function fetchBands() {
     setLoadingBands(true);
     const { data } = await supabase
-      .from('bands')
-      .select('*, profiles!updated_by(first_name, last_name, email)')
+      .from('bands_ordered')
+      .select('*, people!updated_by_id(first_name, last_name, email)')
       .order('name');
     if (data) setBands(data);
     setLoadingBands(false);
@@ -383,7 +399,7 @@ export function AdminView() {
     setLoadingEvents(true);
     const { data } = await supabase
       .from('events')
-      .select('*, profiles!updated_by(first_name, last_name, email), venues(name), acts(start_time, band_id, bands(name))')
+      .select('*, people!updated_by_id(first_name, last_name, email), venues(name), acts(start_time, band_id, bands:bands_ordered(name))')
       .order('created_at', { ascending: false });
     if (data) setEvents(data);
     setLoadingEvents(false);
@@ -415,7 +431,7 @@ export function AdminView() {
   }
 
   const handleCopyAsNew = (event: AppEvent) => {
-    const { id, created_at, updated_at, updated_by, ...rest } = event;
+    const { id, created_at, updated_at, updated_by_id, ...rest } = event as any;
     const copiedEvent = {
       ...rest,
       start_time: undefined,
@@ -433,7 +449,12 @@ export function AdminView() {
     e.preventDefault();
     if (!newGenreName.trim()) return;
     
-    const { error } = await supabase.from('genres').insert({ name: newGenreName.trim() });
+    const { error } = await supabase.from('genres').insert({ 
+      name: newGenreName.trim(),
+      created_by_id: personId,
+      updated_at: new Date().toISOString(),
+      updated_by_id: personId
+    });
     if (error) {
       alert(error.message);
     } else {
@@ -499,12 +520,17 @@ export function AdminView() {
         .insert(venueNames.map((name, i) => ({
           // manager_id: user.id,
           name: `Test Venue ${i + 1}: ${name}`,
-          address: `${100 + i} Main St, Buffalo, NY`,
+          address_line1: `${100 + i} Main St`,
+          city: 'Buffalo',
+          state: 'NY',
           description: `A great place for ${name.split(' ')[0]} music.`,
           phone: '555-010' + i,
           email: `venue${i}@example.com`,
           website: `https://venue${i}.com`,
-          images: [`https://picsum.photos/seed/venue${i}/800/600`]
+          images: [`https://picsum.photos/seed/venue${i}/800/600`],
+          created_by_id: personId,
+          updated_at: new Date().toISOString(),
+          updated_by_id: personId
         })))
         .select();
 
@@ -520,7 +546,10 @@ export function AdminView() {
           phone: '555-TEST',
           email: 'testband@example.com',
           website: 'https://testband.com',
-          images: ['https://picsum.photos/seed/testband/800/600']
+          images: ['https://picsum.photos/seed/testband/800/600'],
+          created_by_id: personId,
+          updated_at: new Date().toISOString(),
+          updated_by_id: personId
         }])
         .select()
         .single();
@@ -546,7 +575,10 @@ export function AdminView() {
               venue_confirmed: true,
               band_confirmed: true,
               is_public: true,
-              is_published: true
+              is_published: true,
+              created_by_id: personId,
+              updated_at: new Date().toISOString(),
+              updated_by_id: personId
             }])
             .select()
             .single();
@@ -559,7 +591,10 @@ export function AdminView() {
             .insert([{
               event_id: insertedEvent.id,
               band_id: insertedBand.id,
-              start_time: startTime.toISOString()
+              start_time: startTime.toISOString(),
+              created_by_id: personId,
+              updated_at: new Date().toISOString(),
+              updated_by_id: personId
             }]);
 
           if (actError) throw actError;
@@ -593,7 +628,7 @@ export function AdminView() {
 
   const activeTabLabel = tabs.find(t => t.id === activeSubTab)?.label || 'Select Tab';
 
-  if (activeRole !== 'admin') {
+  if (activeRole !== 'super_admin') {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center text-center p-8">
         <div className="bg-red-600/10 p-6 rounded-3xl mb-6">

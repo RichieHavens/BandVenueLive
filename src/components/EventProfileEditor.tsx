@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../AuthContext';
 import { useNavigationContext } from '../context/NavigationContext';
 import { AppEvent } from '../types';
-import { Save, Loader2, Eye, Image as ImageIcon, Trash2, MapPin, Calendar, Clock, DollarSign, FileText, Settings, ChevronDown, ChevronUp } from 'lucide-react';
+import { Save, Loader2, Eye, Image as ImageIcon, Trash2, MapPin, Calendar, Clock, DollarSign, FileText, Settings, ChevronDown, ChevronUp, Shield } from 'lucide-react';
 import ProfilePreviewModal from './ProfilePreviewModal';
 import { getDateFromDate, getTimeFromDate } from '../lib/utils';
 import ImageUpload from './ImageUpload';
@@ -16,9 +16,8 @@ import { Button } from './ui/Button';
 import { cn } from '../lib/utils';
 
 export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSuccess }: { eventId: string, onDirtyChange?: (dirty: boolean) => void, onSaveSuccess?: () => void }) {
-  const { user, profile } = useAuth();
+  const { user, profile, personId, isSuperAdmin } = useAuth();
   const { addRecentRecord } = useNavigationContext();
-  const isAdmin = profile?.roles.includes('admin');
   const [event, setEvent] = useState<Partial<AppEvent> | null>(null);
   const [initialEvent, setInitialEvent] = useState<Partial<AppEvent> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -121,6 +120,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
   async function logUpdate(eventId: string, changes: any) {
     await supabase.from('audit_logs').insert({
       user_id: user?.id,
+      created_by_id: personId,
       table_name: 'events',
       record_id: eventId,
       changes: changes
@@ -176,7 +176,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
         hero_url: event?.hero_url,
         bag_policy: event?.bag_policy,
         updated_at: new Date().toISOString(),
-        updated_by: user?.id
+        updated_by_id: personId
       };
 
       const changes: any = {};
@@ -198,7 +198,11 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
       if (currentStartTime !== (initialEvent as any).start_time) {
         const actId = (initialEvent as any).acts?.[0]?.id;
         if (actId) {
-          await supabase.from('acts').update({ start_time: currentStartTime }).eq('id', actId);
+          await supabase.from('acts').update({ 
+            start_time: currentStartTime,
+            updated_at: new Date().toISOString(),
+            updated_by_id: personId
+          }).eq('id', actId);
           changes.start_time = currentStartTime;
         }
       }
@@ -247,7 +251,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
       <div className="flex items-center justify-between sticky top-0 z-10 bg-neutral-950/80 backdrop-blur-xl py-4 border-b border-neutral-900">
         <div>
           <h2 className="text-2xl font-bold text-white">Edit Event</h2>
-          {isPast && !isAdmin && <span className="text-red-500 text-xs font-bold uppercase tracking-wider">Past event - not editable</span>}
+          {isPast && !isSuperAdmin && <span className="text-red-500 text-xs font-bold uppercase tracking-wider">Past event - not editable</span>}
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -260,7 +264,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
             <Eye size={18} />
             Preview
           </Button>
-          {(!isPast || isAdmin) && (
+          {(!isPast || isSuperAdmin) && (
             <Button
               type="button"
               onClick={handleSave}
@@ -284,6 +288,97 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
 
       <form onSubmit={handleSave} className="space-y-4 max-w-3xl mx-auto">
         
+        {/* Super Admin Controls */}
+        {isSuperAdmin && event && (
+          <div className="bg-blue-500/5 border border-blue-500/20 rounded-2xl p-6 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Shield className="text-blue-500" size={18} />
+              <h3 className="text-sm font-bold text-blue-500 uppercase tracking-widest">Super Admin Controls</h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="flex items-center justify-between p-4 bg-neutral-900/50 rounded-xl border border-neutral-800">
+                <div className="space-y-0.5">
+                  <label className="text-sm font-bold text-white">Venue Confirmed</label>
+                  <p className="text-xs text-neutral-500">Venue has confirmed the booking</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEvent({ ...event, venue_confirmed: !event.venue_confirmed })}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                    event.venue_confirmed ? 'bg-blue-600' : 'bg-neutral-700'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      event.venue_confirmed ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-neutral-900/50 rounded-xl border border-neutral-800">
+                <div className="space-y-0.5">
+                  <label className="text-sm font-bold text-white">Band Confirmed</label>
+                  <p className="text-xs text-neutral-500">Band has confirmed the booking</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEvent({ ...event, band_confirmed: !event.band_confirmed })}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                    event.band_confirmed ? 'bg-blue-600' : 'bg-neutral-700'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      event.band_confirmed ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-neutral-900/50 rounded-xl border border-neutral-800">
+                <div className="space-y-0.5">
+                  <label className="text-sm font-bold text-white">Promoter Confirmed</label>
+                  <p className="text-xs text-neutral-500">Promoter has confirmed the booking</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEvent({ ...event, promoter_confirmed: !event.promoter_confirmed })}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                    event.promoter_confirmed ? 'bg-blue-600' : 'bg-neutral-700'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      event.promoter_confirmed ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-neutral-900/50 rounded-xl border border-neutral-800">
+                <div className="space-y-0.5">
+                  <label className="text-sm font-bold text-white">Published</label>
+                  <p className="text-xs text-neutral-500">Event is visible to the public</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setEvent({ ...event, is_published: !event.is_published })}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                    event.is_published ? 'bg-green-600' : 'bg-neutral-700'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      event.is_published ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Basic Info Section */}
         <div className="space-y-4">
           <SectionHeader id="basic" title="Basic Info" icon={Calendar} />
@@ -293,7 +388,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
                 label="Event Title"
                 type="text"
                 required
-                disabled={isPast && !isAdmin}
+                disabled={isPast && !isSuperAdmin}
                 value={event?.title || ''}
                 onChange={(e) => setEvent({ ...event, title: e.target.value })}
                 placeholder="e.g. Summer Rock Fest"
@@ -305,7 +400,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
                     label="Event Date"
                     type="date"
                     required
-                    disabled={isPast && !isAdmin}
+                    disabled={isPast && !isSuperAdmin}
                     value={eventDate}
                     onChange={(e) => setEventDate(e.target.value)}
                     className={dateError ? 'border-red-500 ring-1 ring-red-500' : ''}
@@ -316,7 +411,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
                   label="Start Time"
                   type="time"
                   required
-                  disabled={isPast && !isAdmin}
+                  disabled={isPast && !isSuperAdmin}
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
                 />
@@ -334,7 +429,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
                 {event?.hero_url ? (
                   <>
                     <img src={event.hero_url} alt="Event" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    {(!isPast || isAdmin) && (
+                    {(!isPast || isSuperAdmin) && (
                       <button
                         type="button"
                         onClick={() => setEvent({ ...event, hero_url: '' })}
@@ -352,7 +447,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
                   </div>
                 )}
               </div>
-              {(!isPast || isAdmin) && (
+              {(!isPast || isSuperAdmin) && (
                 <div className="flex flex-col sm:flex-row gap-3">
                   <ImageUpload 
                     type="hero"
@@ -389,7 +484,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
                 <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Description</label>
                 <Textarea
                   rows={4}
-                  disabled={isPast && !isAdmin}
+                  disabled={isPast && !isSuperAdmin}
                   value={event?.description || ''}
                   onChange={(e) => setEvent({ ...event, description: e.target.value })}
                   placeholder="Tell people about this event..."
@@ -400,7 +495,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
                 <Input
                   label="Price Low ($)"
                   type="number"
-                  disabled={isPast && !isAdmin}
+                  disabled={isPast && !isSuperAdmin}
                   value={event?.ticket_price_low || ''}
                   onChange={(e) => setEvent({ ...event, ticket_price_low: parseFloat(e.target.value) })}
                   icon={<DollarSign size={16} className="text-neutral-500" />}
@@ -408,7 +503,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
                 <Input
                   label="Price High ($)"
                   type="number"
-                  disabled={isPast && !isAdmin}
+                  disabled={isPast && !isSuperAdmin}
                   value={event?.ticket_price_high || ''}
                   onChange={(e) => setEvent({ ...event, ticket_price_high: parseFloat(e.target.value) })}
                   icon={<DollarSign size={16} className="text-neutral-500" />}
@@ -419,7 +514,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
                 <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Bag Policy (Override)</label>
                 <Textarea
                   rows={2}
-                  disabled={isPast && !isAdmin}
+                  disabled={isPast && !isSuperAdmin}
                   value={event?.bag_policy || ''}
                   onChange={(e) => setEvent({ ...event, bag_policy: e.target.value })}
                   placeholder="Leave blank to use venue default"
@@ -458,7 +553,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
                   <input
                     type="checkbox"
                     className="sr-only"
-                    disabled={isPast && !isAdmin}
+                    disabled={isPast && !isSuperAdmin}
                     checked={(event as any)?.[toggle.id] || false}
                     onChange={(e) => setEvent({ ...event, [toggle.id]: e.target.checked })}
                   />

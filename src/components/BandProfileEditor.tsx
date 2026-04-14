@@ -3,8 +3,9 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../AuthContext';
 import { useNavigationContext } from '../context/NavigationContext';
 import { Band } from '../types';
-import { Save, Loader2, Trash2, Plus, Video, Eye, Image as ImageIcon, MapPin, User, Mail, Phone, Globe, Linkedin, Youtube, Instagram, Facebook, Twitter, Music, Info, Share2, ChevronDown, ChevronUp, Users } from 'lucide-react';
-import { US_STATES, CA_PROVINCES, AddressParts, formatAddress, parseAddress, validateZipForState } from '../lib/geo';
+import { Save, Loader2, Trash2, Plus, Video, Eye, Image as ImageIcon, MapPin, User, Mail, Phone, Globe, Linkedin, Youtube, Instagram, Facebook, Twitter, Music, Info, Share2, ChevronDown, ChevronUp, Users, Shield } from 'lucide-react';
+import { US_STATES, CA_PROVINCES, AddressParts, formatAddress, parseAddress, validatePostalCodeForState } from '../lib/geo';
+import { cleanWebsiteUrl } from '../lib/utils';
 import ImageUpload from './ImageUpload';
 import { formatPhoneNumber } from '../lib/phoneFormatter';
 import ProfilePreviewModal from './ProfilePreviewModal';
@@ -25,22 +26,16 @@ interface BandProfileEditorProps {
 }
 
 export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, onDirtyChange, onSaveSuccess }) => {
-  const { user, profile, isSuperAdmin } = useAuth();
+  const { user, profile, personId, isSuperAdmin } = useAuth();
   const { addRecentRecord } = useNavigationContext();
   const [managers, setManagers] = useState<{id: string, display_name: string, login_email: string}[]>([]);
   const [loadingManagers, setLoadingManagers] = useState(false);
   const [band, setBand] = useState<Partial<Band>>({
     name: '',
     description: '',
-    address: '',
-    street: '',
-    city: '',
-    state: '',
-    zip: '',
-    country: 'US',
     phone: '',
     email: '',
-    website: '',
+    website_url: '',
     linkedin_url: '',
     pinterest_url: '',
     youtube_url: '',
@@ -48,15 +43,16 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
     apple_music_url: '',
     spotify_url: '',
     facebook_url: '',
-    twitter_url: '',
+    x_url: '',
     logo_url: '',
     hero_url: '',
     images: [],
     video_links: [],
-    geography: 'Local'
+    travel_region: 'Local',
+    is_confirmed: false,
+    is_published: false
   });
   const [initialBand, setInitialBand] = useState<Partial<Band> | null>(null);
-  const [addressParts, setAddressParts] = useState<AddressParts>(parseAddress(''));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -72,7 +68,7 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
       band.description !== initialBand.description ||
       band.phone !== initialBand.phone ||
       band.email !== initialBand.email ||
-      band.website !== initialBand.website ||
+      band.website_url !== initialBand.website_url ||
       band.linkedin_url !== initialBand.linkedin_url ||
       band.pinterest_url !== initialBand.pinterest_url ||
       band.youtube_url !== initialBand.youtube_url ||
@@ -80,12 +76,12 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
       band.apple_music_url !== initialBand.apple_music_url ||
       band.spotify_url !== initialBand.spotify_url ||
       band.facebook_url !== initialBand.facebook_url ||
-      band.twitter_url !== initialBand.twitter_url ||
+      band.x_url !== initialBand.x_url ||
       band.logo_url !== initialBand.logo_url ||
       band.hero_url !== initialBand.hero_url ||
       JSON.stringify(band.images) !== JSON.stringify(initialBand.images) ||
       JSON.stringify(band.video_links) !== JSON.stringify(initialBand.video_links) ||
-      band.geography !== initialBand.geography;
+      band.travel_region !== initialBand.travel_region;
     
     onDirtyChange?.(isDirty);
   }, [band, initialBand, onDirtyChange]);
@@ -103,9 +99,35 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
   async function fetchManagers() {
     setLoadingManagers(true);
     try {
+      const bandsRes = await supabase.from('bands').select('manager_id').not('manager_id', 'is', null);
+      const managerIds = Array.from(new Set(bandsRes.data?.map(b => b.manager_id) || []));
+
+      if (managerIds.length === 0) {
+        // fallback: allow all profiles so first manager can be assigned
+        const [profilesRes, peopleRes] = await Promise.all([
+          supabase.from('profiles').select('id, email, first_name, last_name'),
+          supabase.from('people').select('id, user_id, first_name, last_name')
+        ]);
+
+        if (profilesRes.data && peopleRes.data) {
+          const managers = profilesRes.data.map(p => {
+            const person = peopleRes.data.find(pe => pe.user_id === p.id);
+            const display_name = (person?.first_name || person?.last_name)
+              ? `${person.first_name || ''} ${person.last_name || ''}`.trim()
+              : (p.first_name || p.last_name)
+              ? `${p.first_name || ''} ${p.last_name || ''}`.trim()
+              : p.email;
+            return { id: p.id, display_name, login_email: p.email };
+          });
+          setManagers(managers);
+        }
+
+        return;
+      }
+
       const [profilesRes, peopleRes] = await Promise.all([
-        supabase.from('profiles').select('id, email, first_name, last_name'),
-        supabase.from('people').select('id, user_id, first_name, last_name')
+        supabase.from('profiles').select('id, email, first_name, last_name').in('id', managerIds),
+        supabase.from('people').select('id, user_id, first_name, last_name').in('user_id', managerIds)
       ]);
 
       if (profilesRes.data && peopleRes.data) {
@@ -142,7 +164,7 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
           description: '',
           phone: '',
           email: '',
-          website: '',
+          website_url: '',
           linkedin_url: '',
           pinterest_url: '',
           youtube_url: '',
@@ -150,27 +172,28 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
           apple_music_url: '',
           spotify_url: '',
           facebook_url: '',
-          twitter_url: '',
+          x_url: '',
           logo_url: '',
           hero_url: '',
           images: [],
           video_links: [],
-          geography: 'Local' as 'Local' | 'Regional' | 'National'
+          travel_region: 'Local' as 'Local' | 'Regional' | 'National',
+          is_confirmed: false,
+          is_published: false
         };
         setBand(defaultBand);
         setInitialBand(defaultBand);
-        setAddressParts(parseAddress(''));
         setLoading(false);
         return;
       }
 
-      let query = supabase.from('bands').select('*');
+      let query = supabase.from('bands_ordered').select('*');
       
       if (bandId) {
         query = query.eq('id', bandId);
       } else if (personData) {
-        // If they have a person record, check both manager_id and person_id
-        query = query.or(`manager_id.eq.${user?.id},person_id.eq.${personData.id}`);
+        // If they have a person record, check both manager_id and created_by_id
+        query = query.or(`manager_id.eq.${user?.id},created_by_id.eq.${personData.id}`);
       } else {
         query = query.eq('manager_id', user?.id);
       }
@@ -184,7 +207,7 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
         description: '',
         phone: '',
         email: '',
-        website: '',
+        website_url: '',
         linkedin_url: '',
         pinterest_url: '',
         youtube_url: '',
@@ -192,12 +215,14 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
         apple_music_url: '',
         spotify_url: '',
         facebook_url: '',
-        twitter_url: '',
+        x_url: '',
         logo_url: '',
         hero_url: '',
         images: [],
         video_links: [],
-        geography: 'Local' as 'Local' | 'Regional' | 'National'
+        travel_region: 'Local' as 'Local' | 'Regional' | 'National',
+        is_confirmed: false,
+        is_published: false
       };
 
       if (data) {
@@ -206,11 +231,12 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
           ...data,
           phone: data.phone || '',
           email: data.email || '',
+          website_url: data.website_url ? data.website_url.replace(/^(https?:\/\/)?(www\.)?/, '') : '',
           logo_url: data.logo_url || '',
           hero_url: data.hero_url || '',
           images: data.images || [],
           video_links: data.video_links || [],
-          geography: data.geography || 'Local'
+          travel_region: data.travel_region || 'Local'
         };
         setBand(cleanedData);
         setInitialBand(cleanedData);
@@ -219,13 +245,6 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
           type: 'band',
           name: cleanedData.name,
           timestamp: Date.now()
-        });
-        setAddressParts({
-          street: data.street || '',
-          city: data.city || '',
-          state: data.state || '',
-          zip: data.zip || '',
-          country: data.country || 'US'
         });
       } else {
         setBand(defaultBand);
@@ -242,6 +261,7 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
     try {
       await supabase.from('audit_logs').insert({
         user_id: user?.id,
+        created_by_id: personId,
         table_name: 'bands',
         record_id: bandId,
         changes: changes
@@ -261,13 +281,6 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
     e.preventDefault();
     setSaving(true);
     setMessage(null);
-
-    const zipValidation = validateZipForState(addressParts.zip, addressParts.state, addressParts.country);
-    if (!zipValidation.isValid) {
-      setMessage({ type: 'error', text: zipValidation.message || 'Invalid Zip/Postal Code for the selected state/province.' });
-      setSaving(false);
-      return;
-    }
 
     try {
       // Sanitize band data to remove joined data that doesn't belong in the bands table
@@ -292,16 +305,18 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
         .eq('user_id', user?.id)
         .maybeSingle();
 
+      const finalWebsite = cleanWebsiteUrl(band.website_url);
+      const isNew = !band.id || bandId === 'new';
+
       const { error, data } = await supabase
         .from('bands')
         .upsert({
           ...cleanBand,
-          ...addressParts,
-          address: formatAddress(addressParts),
           manager_id: band.manager_id || null, // Preserve existing manager or leave null
-          person_id: band.person_id || personData?.id, // Link to person record if available
+          website_url: finalWebsite,
           updated_at: new Date().toISOString(),
-          updated_by: user?.id
+          updated_by_id: personData?.id,
+          ...(isNew ? { created_by_id: personData?.id } : {})
         })
         .select()
         .single();
@@ -315,8 +330,8 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
       }
 
       setMessage({ type: 'success', text: 'Band profile updated successfully!' });
-      setBand(prev => ({ ...prev, id: data.id }));
-      setInitialBand({ ...band, id: data.id });
+      setBand(prev => ({ ...prev, id: data.id, website_url: finalWebsite ? finalWebsite.replace(/^(https?:\/\/)?(www\.)?/, '') : '' }));
+      setInitialBand({ ...band, id: data.id, website_url: finalWebsite ? finalWebsite.replace(/^(https?:\/\/)?(www\.)?/, '') : '' });
       
       setTimeout(() => {
         onSaveSuccess?.();
@@ -387,6 +402,57 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
 
       <form onSubmit={handleSave} className="space-y-4 max-w-3xl mx-auto">
         
+        {/* Super Admin Controls */}
+        {isSuperAdmin && (
+          <div className="bg-blue-500/5 border border-blue-500/20 rounded-2xl p-6 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Shield className="text-blue-500" size={18} />
+              <h3 className="text-sm font-bold text-blue-500 uppercase tracking-widest">Super Admin Controls</h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="flex items-center justify-between p-4 bg-neutral-900/50 rounded-xl border border-neutral-800">
+                <div className="space-y-0.5">
+                  <label className="text-sm font-bold text-white">Confirmed</label>
+                  <p className="text-xs text-neutral-500">Band is verified and confirmed</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setBand({ ...band, is_confirmed: !band.is_confirmed })}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                    band.is_confirmed ? 'bg-blue-600' : 'bg-neutral-700'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      band.is_confirmed ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-neutral-900/50 rounded-xl border border-neutral-800">
+                <div className="space-y-0.5">
+                  <label className="text-sm font-bold text-white">Published</label>
+                  <p className="text-xs text-neutral-500">Band is visible to the public</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setBand({ ...band, is_published: !band.is_published })}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                    band.is_published ? 'bg-green-600' : 'bg-neutral-700'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      band.is_published ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Basic Info Section */}
         <div className="space-y-4">
           <SectionHeader id="basic" title="Basic Info" icon={Info} />
@@ -402,10 +468,10 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
               />
 
               <div className="space-y-2">
-                <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Band Geography</label>
+                <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Band Travel Region</label>
                 <select
-                  value={band.geography || 'Local'}
-                  onChange={(e) => setBand({ ...band, geography: e.target.value as 'Local' | 'Regional' | 'National' })}
+                  value={band.travel_region || 'Local'}
+                  onChange={(e) => setBand({ ...band, travel_region: e.target.value as 'Local' | 'Regional' | 'National' })}
                   className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-blue-600 outline-none transition-all appearance-none"
                 >
                   <option value="Local">Local</option>
@@ -449,79 +515,6 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
           {expandedSection === 'contact' && (
             <div className="p-4 sm:p-6 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-6 animate-in fade-in slide-in-from-top-2">
               
-              {/* Address */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Home Base</label>
-                  <div className="flex bg-neutral-800 p-1 rounded-xl border border-neutral-700">
-                    <button
-                      type="button"
-                      onClick={() => setAddressParts({ ...addressParts, country: 'US', state: '' })}
-                      className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all", addressParts.country === 'US' ? 'bg-blue-600 text-white' : 'text-neutral-400 hover:text-neutral-300')}
-                    >
-                      USA
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAddressParts({ ...addressParts, country: 'CA', state: '' })}
-                      className={cn("px-4 py-1.5 rounded-lg text-xs font-bold transition-all", addressParts.country === 'CA' ? 'bg-blue-600 text-white' : 'text-neutral-400 hover:text-neutral-300')}
-                    >
-                      CANADA
-                    </button>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="sm:col-span-2 space-y-2">
-                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">Street Address</label>
-                    <div className="relative">
-                      <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
-                      <Input
-                        type="text"
-                        value={addressParts.street || ''}
-                        onChange={(e) => setAddressParts({ ...addressParts, street: e.target.value })}
-                        className="pl-12"
-                        placeholder="123 Music Ave"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">City</label>
-                    <Input
-                      type="text"
-                      value={addressParts.city || ''}
-                      onChange={(e) => setAddressParts({ ...addressParts, city: e.target.value })}
-                      placeholder="Nashville"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <SearchableSelect
-                      label={addressParts.country === 'US' ? 'State' : 'Province'}
-                      value={addressParts.state || ''}
-                      onChange={(val) => setAddressParts({ ...addressParts, state: val })}
-                      options={(addressParts.country === 'US' ? US_STATES : CA_PROVINCES).map(s => ({ id: s.code, name: s.name }))}
-                      placeholder="Select..."
-                    />
-
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">
-                        {addressParts.country === 'US' ? 'Zip Code' : 'Postal Code'}
-                      </label>
-                      <Input
-                        type="text"
-                        value={addressParts.zip || ''}
-                        onChange={(e) => setAddressParts({ ...addressParts, zip: e.target.value })}
-                        placeholder={addressParts.country === 'US' ? '37201' : 'M5V 2T6'}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="h-px bg-neutral-800 w-full" />
-
               {/* Contact */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -552,8 +545,8 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
                     </div>
                     <input
                       type="text"
-                      value={band.website || ''}
-                      onChange={(e) => setBand({ ...band, website: e.target.value })}
+                      value={band.website_url || ''}
+                      onChange={(e) => setBand({ ...band, website_url: e.target.value })}
                       placeholder="www.band.com"
                       className="w-full bg-neutral-800 border border-neutral-700 rounded-xl py-3 pl-[4.5rem] pr-4 text-white focus:ring-2 focus:ring-blue-600 outline-none transition-all"
                     />
@@ -730,7 +723,7 @@ export const BandProfileEditor: React.FC<BandProfileEditorProps> = ({ bandId, on
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input label="Instagram URL" type="url" value={band.instagram_url || ''} onChange={(e) => setBand({ ...band, instagram_url: e.target.value })} placeholder="https://instagram.com/..." />
                 <Input label="Facebook URL" type="url" value={band.facebook_url || ''} onChange={(e) => setBand({ ...band, facebook_url: e.target.value })} placeholder="https://facebook.com/..." />
-                <Input label="Twitter (X) URL" type="url" value={band.twitter_url || ''} onChange={(e) => setBand({ ...band, twitter_url: e.target.value })} placeholder="https://twitter.com/..." />
+                <Input label="X (Twitter) URL" type="url" value={band.x_url || ''} onChange={(e) => setBand({ ...band, x_url: e.target.value })} placeholder="https://x.com/..." />
                 <Input label="YouTube Channel URL" type="url" value={band.youtube_url || ''} onChange={(e) => setBand({ ...band, youtube_url: e.target.value })} placeholder="https://youtube.com/..." />
                 <Input label="Spotify URL" type="url" value={band.spotify_url || ''} onChange={(e) => setBand({ ...band, spotify_url: e.target.value })} placeholder="https://open.spotify.com/..." />
                 <Input label="Apple Music URL" type="url" value={band.apple_music_url || ''} onChange={(e) => setBand({ ...band, apple_music_url: e.target.value })} placeholder="https://music.apple.com/..." />

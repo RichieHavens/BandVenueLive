@@ -68,28 +68,43 @@ export const CA_PROVINCES = [
 ];
 
 export interface AddressParts {
-  street: string;
+  address_line1: string;
+  address_line2?: string;
   city: string;
   state: string;
-  zip: string;
+  postal_code: string;
   country: 'US' | 'CA';
 }
 
 export const formatAddress = (parts: AddressParts) => {
-  if (!parts.street && !parts.city && !parts.state && !parts.zip) return '';
-  return `${parts.street}|${parts.city}|${parts.state}|${parts.zip}|${parts.country}`;
+  if (!parts.address_line1 && !parts.city && !parts.state && !parts.postal_code) return '';
+  return `${parts.address_line1}|${parts.address_line2 || ''}|${parts.city}|${parts.state}|${parts.postal_code}|${parts.country}`;
 };
 
 export const parseAddress = (address: string): AddressParts => {
   if (!address || !address.includes('|')) {
-    return { street: address || '', city: '', state: '', zip: '', country: 'US' };
+    return { address_line1: address || '', address_line2: '', city: '', state: '', postal_code: '', country: 'US' };
   }
-  const [street, city, state, zip, country] = address.split('|');
+  const parts = address.split('|');
+  if (parts.length === 5) {
+    // Backward compatibility for old format [line1, city, state, zip, country]
+    const [address_line1, city, state, postal_code, country] = parts;
+    return { 
+      address_line1: address_line1 || '', 
+      address_line2: '',
+      city: city || '', 
+      state: state || '', 
+      postal_code: postal_code || '', 
+      country: (country as 'US' | 'CA') || 'US' 
+    };
+  }
+  const [address_line1, address_line2, city, state, postal_code, country] = parts;
   return { 
-    street: street || '', 
+    address_line1: address_line1 || '', 
+    address_line2: address_line2 || '',
     city: city || '', 
     state: state || '', 
-    zip: zip || '', 
+    postal_code: postal_code || '', 
     country: (country as 'US' | 'CA') || 'US' 
   };
 };
@@ -98,13 +113,21 @@ export const displayAddress = (address: string | undefined | null): string => {
   if (!address) return '';
   if (!address.includes('|')) return address;
   
-  const [street, city, state, zip, country] = address.split('|');
+  const parts = address.split('|');
+  let line1, line2, city, state, postal_code, country;
+
+  if (parts.length === 5) {
+    [line1, city, state, postal_code, country] = parts;
+  } else {
+    [line1, line2, city, state, postal_code, country] = parts;
+  }
+
   const cityStateZip = [
     city,
-    [state, zip].filter(Boolean).join(' ')
+    [state, postal_code].filter(Boolean).join(' ')
   ].filter(Boolean).join(', ');
 
-  return [street, cityStateZip, country !== 'US' ? country : null].filter(Boolean).join(', ');
+  return [line1, line2, cityStateZip, country !== 'US' ? country : null].filter(Boolean).join(', ');
 };
 
 export const US_ZIP_MAP: Record<string, string[]> = {
@@ -130,26 +153,26 @@ export const CA_POSTAL_MAP: Record<string, string[]> = {
   'NT': ['X'], 'NU': ['X'], 'YT': ['Y'],
 };
 
-export const validateZipForState = (zip: string, state: string, country: 'US' | 'CA'): { isValid: boolean, message?: string } => {
-  if (!zip || !state) return { isValid: true };
+export const validatePostalCodeForState = (postalCode: string, state: string, country: 'US' | 'CA'): { isValid: boolean, message?: string } => {
+  if (!postalCode || !state) return { isValid: true };
   
-  const cleanZip = zip.trim().toUpperCase().replace(/\s/g, '');
+  const cleanPostalCode = postalCode.trim().toUpperCase().replace(/\s/g, '');
   
   if (country === 'US') {
-    if (!/^\d{5}(-\d{4})?$/.test(cleanZip)) {
+    if (!/^\d{5}(-\d{4})?$/.test(cleanPostalCode)) {
       return { isValid: false, message: 'Invalid Zip Code format (12345 or 12345-6789)' };
     }
     const validPrefixes = US_ZIP_MAP[state];
-    if (validPrefixes && !validPrefixes.some(p => cleanZip.startsWith(p))) {
-      return { isValid: false, message: `Zip Code ${cleanZip.substring(0, 5)} is not valid for ${state}` };
+    if (validPrefixes && !validPrefixes.some(p => cleanPostalCode.startsWith(p))) {
+      return { isValid: false, message: `Zip Code ${cleanPostalCode.substring(0, 5)} is not valid for ${state}` };
     }
   } else {
-    if (!/^[A-Z]\d[A-Z]\d[A-Z]\d$/.test(cleanZip)) {
+    if (!/^[A-Z]\d[A-Z]\d[A-Z]\d$/.test(cleanPostalCode)) {
       return { isValid: false, message: 'Invalid Postal Code format (A1A1A1)' };
     }
     const validLetters = CA_POSTAL_MAP[state];
-    if (validLetters && !validLetters.includes(cleanZip[0])) {
-      return { isValid: false, message: `Postal Code starting with ${cleanZip[0]} is not valid for ${state}` };
+    if (validLetters && !validLetters.includes(cleanPostalCode[0])) {
+      return { isValid: false, message: `Postal Code starting with ${cleanPostalCode[0]} is not valid for ${state}` };
     }
   }
   

@@ -1,4 +1,4 @@
-export type UserRole = 'venue_manager' | 'band_manager' | 'musician' | 'guest' | 'syndication_manager' | 'admin';
+export type UserRole = 'venue_manager' | 'band_manager' | 'musician' | 'registered_guest' | 'promoter' | 'super_admin';
 
 export interface Profile {
   id: string;
@@ -6,12 +6,23 @@ export interface Profile {
   first_name: string;
   last_name: string;
   phone?: string;
-  address?: string;
-  roles: UserRole[];
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  postal_code?: string;
+  country?: string;
   default_role?: UserRole;
   avatar_url?: string;
   created_at: string;
+  created_by_id?: string;
+  updated_at?: string;
+  updated_by_id?: string;
   is_super_admin: boolean;
+  is_musician?: boolean;
+  is_band_manager?: boolean;
+  is_venue_manager?: boolean;
+  is_solo_act?: boolean;
 }
 
 export interface RoleMaster {
@@ -51,6 +62,9 @@ export interface RoleAlert {
   link_url?: string;
   is_resolved: boolean;
   created_at: string;
+  created_by_id?: string;
+  updated_at?: string;
+  updated_by_id?: string;
 }
 
 export interface Genre {
@@ -58,19 +72,23 @@ export interface Genre {
   name: string;
 }
 
-export interface MusicianProfile {
+export interface MusicianDetails {
   id: string;
-  user_id: string;
+  user_id?: string;
+  musician_bio?: string;
+  vocal_type?: string;
+  looking_for_bands?: boolean;
+  open_for_gigs?: boolean;
+  instruments?: string[];
   low_res_image_url?: string;
   high_res_image_url?: string;
   hero_image_url?: string;
-  instruments: string[];
   music_description?: string;
   about_description?: string;
-  looking_for_band: boolean;
-  open_for_gigs: boolean;
   created_at: string;
+  created_by_id?: string;
   updated_at?: string;
+  updated_by_id?: string;
 }
 
 export interface Person {
@@ -80,15 +98,17 @@ export interface Person {
   last_name: string;
   email?: string | null;
   phone?: string;
-  roles: UserRole[];
+  is_super_admin?: boolean;
+  is_solo_act?: boolean;
   default_role?: UserRole;
   venue_ids: string[];
   band_ids: string[];
   last_login_at?: string;
   created_at: string;
+  created_by_id?: string;
   updated_at?: string;
-  updated_by?: string;
-  musician_profiles?: MusicianProfile;
+  updated_by_id?: string;
+  musician_details?: MusicianDetails;
   profiles?: {
     first_name: string;
     last_name: string;
@@ -99,22 +119,22 @@ export interface Person {
 export interface Venue {
   id: string;
   manager_id?: string;
-  person_id?: string;
   name: string;
   description: string;
-  address?: string;
-  street?: string;
+  address_line1?: string;
+  address_line2?: string;
   city?: string;
   state?: string;
-  zip?: string;
+  postal_code?: string;
   country?: string;
   phone: string;
   email: string;
-  website: string;
-  food_description: string;
+  website_url: string;
+  description_food: string;
   tech_specs?: string;
   logo_url?: string;
   hero_url?: string;
+  video_links?: string[];
   linkedin_url?: string;
   pinterest_url?: string;
   youtube_url?: string;
@@ -123,12 +143,19 @@ export interface Venue {
   spotify_url?: string;
   facebook_url?: string;
   twitter_url?: string;
+  x_url?: string;
+  tiktok_url?: string;
+  soundcloud_url?: string;
+  bandcamp_url?: string;
   images: string[];
   bag_policy?: string;
   is_archived?: boolean;
+  is_confirmed?: boolean;
+  is_published?: boolean;
   created_at: string;
+  created_by_id?: string;
   updated_at?: string;
-  updated_by?: string;
+  updated_by_id?: string;
 }
 
 export interface VenueEventProfile {
@@ -147,7 +174,9 @@ export interface VenueEventProfile {
   has_multiple_acts: boolean;
   created_by: string;
   created_at: string;
+  created_by_id?: string;
   updated_at?: string;
+  updated_by_id?: string;
 }
 
 export interface VenueEventAct {
@@ -167,58 +196,49 @@ export interface VenueEventDocument {
   file_url: string;
   document_type: 'contract' | 'tech_spec' | 'other';
   created_at: string;
+  created_by_id?: string;
+  updated_at?: string;
+  updated_by_id?: string;
 }
 
 export interface Band {
   id: string;
   manager_id?: string;
-  person_id?: string;
   name: string;
-  manager_first_name?: string;
-  manager_last_name?: string;
   description: string;
-  address?: string;
-  street?: string;
-  city?: string;
-  state?: string;
-  zip?: string;
-  country?: string;
   phone: string;
   email: string;
-  website: string;
+  website_url: string;
+  address_line1?: string;
+  address_line2?: string;
+  postal_code?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  travel_region: 'Local' | 'Regional' | 'National';
   logo_url?: string;
   hero_url?: string;
-  linkedin_url?: string;
-  pinterest_url?: string;
-  youtube_url?: string;
-  instagram_url?: string;
-  apple_music_url?: string;
-  spotify_url?: string;
-  facebook_url?: string;
-  twitter_url?: string;
   images: string[];
   video_links: string[];
-  geography: 'Local' | 'Regional' | 'National';
-  is_published?: boolean;
-  is_archived?: boolean;
-  is_confirmed: boolean;
-  created_by_venue_id?: string;
+  facebook_url?: string;
+  instagram_url?: string;
+  tiktok_url?: string;
+  pinterest_url?: string;
+  linkedin_url?: string;
+  youtube_url?: string;
+  apple_music_url?: string;
+  spotify_url?: string;
+  soundcloud_url?: string;
+  bandcamp_url?: string;
+  x_url?: string;
+  created_by_id?: string;
   created_at: string;
   updated_at?: string;
-  updated_by?: string;
-}
-
-export interface MusicianProfile {
-  id: string;
-  phone: string;
-  website: string;
-  video_links: string[];
-  description: string;
-  looking_for_bands: boolean;
-  open_for_gigs: boolean;
-  instruments: string[];
-  is_solo_act: boolean;
-  created_at: string;
+  updated_by_id?: string;
+  is_confirmed: boolean;
+  is_published?: boolean;
+  is_archived?: boolean;
+  created_by_venue_id?: string;
 }
 
 export interface AppEvent {
@@ -236,6 +256,7 @@ export interface AppEvent {
   ticket_disclaimer: string;
   venue_confirmed: boolean;
   band_confirmed: boolean;
+  promoter_confirmed?: boolean;
   band_confirmation_status?: 'pending' | 'sent' | 'confirmed' | 'declined';
   confirmation_requested_at?: string | null;
   confirmation_last_sent_at?: string | null;
@@ -247,8 +268,9 @@ export interface AppEvent {
   hero_url?: string;
   venue_hero_url?: string;
   created_at: string;
+  created_by_id?: string;
   updated_at?: string;
-  updated_by?: string;
+  updated_by_id?: string;
   created_by?: string;
   status?: 'pending' | 'confirmed' | 'rejected';
   venues?: Venue;
@@ -265,6 +287,9 @@ export interface Act {
   bands?: Band;
   start_time: string;
   created_at: string;
+  created_by_id?: string;
+  updated_at?: string;
+  updated_by_id?: string;
 }
 
 export interface VenueSponsor {
@@ -274,6 +299,9 @@ export interface VenueSponsor {
   description: string;
   logo_url: string;
   created_at: string;
+  created_by_id?: string;
+  updated_at?: string;
+  updated_by_id?: string;
 }
 
 export interface BandMember {
@@ -286,7 +314,9 @@ export interface BandMember {
   instrument_description: string;
   is_active: boolean;
   created_at: string;
+  created_by_id?: string;
   updated_at?: string;
+  updated_by_id?: string;
 }
 
 export interface BookingInquiry {

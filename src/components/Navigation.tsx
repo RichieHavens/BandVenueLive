@@ -15,7 +15,7 @@ import {
 } from "./ui/sheet";
 
 export default function Navigation() {
-  const { user, profile, activeRole, setActiveRole, signOut } = useAuth();
+  const { user, profile, activeRole, setActiveRole, signOut, availableRoles } = useAuth();
   const { 
     activeTab, 
     managementTabs, 
@@ -28,12 +28,12 @@ export default function Navigation() {
   const [isAboutOpen, setIsAboutOpen] = React.useState(false);
 
   const roleLabels: Record<string, string> = {
-    admin: 'Super Admin',
+    super_admin: 'Super Admin',
     venue_manager: 'Venue Manager',
     band_manager: 'Band Manager',
     musician: 'Musician',
-    guest: 'Guest',
-    syndication_manager: 'Syndicator'
+    registered_guest: 'Registered Guest',
+    promoter: 'Promoter'
   };
 
   // Determine which tabs to show in the bottom nav based on auth state
@@ -52,7 +52,7 @@ export default function Navigation() {
       ];
       
       // Find the primary dashboard tab for their role
-      const dashboardTab = managementTabs.find(t => t.id === 'venue-manager' || t.id === 'band-manager' || t.id === 'admin' || t.id === 'dashboard');
+      const dashboardTab = managementTabs.find(t => t.id === 'venue-manager' || t.id === 'band-manager' || t.id === 'super_admin' || t.id === 'dashboard');
       
       if (dashboardTab) {
         items.push({ id: dashboardTab.id, label: 'Manage', icon: LayoutDashboard });
@@ -133,11 +133,11 @@ export default function Navigation() {
                 <div className="space-y-8 overflow-y-auto custom-scrollbar pb-12">
                   
                   {/* Role Switcher in Menu (Only if multiple roles) */}
-                  {user && profile && profile.roles.length > 1 && (
+                  {user && profile && availableRoles.length > 1 && (
                     <div className="space-y-3">
                       <label className="text-[10px] font-black uppercase tracking-[0.2em] text-neutral-500 px-2">Active Role</label>
                       <div className="grid grid-cols-1 gap-2">
-                        {profile.roles.map((role) => (
+                        {availableRoles.map((role) => (
                           <button
                             key={role}
                             onClick={() => {
@@ -246,7 +246,7 @@ export default function Navigation() {
 
         {/* Desktop Right Side Actions (Hidden on Mobile) */}
         <div className="hidden md:flex items-center gap-2 shrink-0">
-          {user && profile && profile.roles.length > 1 && (
+          {user && profile && availableRoles.length > 1 && (
             <div className="relative">
               <button 
                 onClick={() => setIsRoleSwitcherOpen(!isRoleSwitcherOpen)}
@@ -282,7 +282,7 @@ export default function Navigation() {
                         <p className="text-[10px] font-black text-neutral-400 uppercase tracking-[0.2em]">Switch Your Hat</p>
                       </div>
                       <div className="space-y-1">
-                        {profile.roles.map((role) => (
+                        {availableRoles.map((role) => (
                           <button
                             key={role}
                             onClick={() => {

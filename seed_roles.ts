@@ -28,7 +28,7 @@ async function seedRoles() {
       welcome_template: 'Ready to rock, {first_name}?'
     },
     {
-      id: 'admin',
+      id: 'super_admin',
       name: 'Administrator',
       description: 'System administration and oversight.',
       welcome_template: 'Admin Dashboard - Welcome {first_name}'

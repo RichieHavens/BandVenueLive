@@ -12,7 +12,10 @@ interface BandMembersManagerProps {
   bandId: string;
 }
 
+import { useAuth } from '../AuthContext';
+
 export default function BandMembersManager({ bandId }: BandMembersManagerProps) {
+  const { personId: currentPersonId } = useAuth();
   const [members, setMembers] = useState<BandMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -75,7 +78,11 @@ export default function BandMembersManager({ bandId }: BandMembersManagerProps) 
           // Update role to include musician if not already
           if (!existingPerson.roles.includes('musician')) {
             const newRoles = [...existingPerson.roles, 'musician'];
-            await supabase.from('people').update({ roles: newRoles }).eq('id', personId);
+            await supabase.from('people').update({ 
+              roles: newRoles,
+              updated_at: new Date().toISOString(),
+              updated_by_id: currentPersonId
+            }).eq('id', personId);
           }
         } else {
           // Create new person
@@ -88,7 +95,10 @@ export default function BandMembersManager({ bandId }: BandMembersManagerProps) 
               email: editingMember.email.toLowerCase().trim(),
               roles: ['musician'],
               venue_ids: [],
-              user_id: null
+              user_id: null,
+              created_by_id: currentPersonId,
+              updated_at: new Date().toISOString(),
+              updated_by_id: currentPersonId
             })
             .select()
             .single();
@@ -114,6 +124,8 @@ export default function BandMembersManager({ bandId }: BandMembersManagerProps) 
         email: editingMember.email.toLowerCase().trim(),
         instrument_description: editingMember.instrument_description || '',
         is_active: editingMember.is_active !== undefined ? editingMember.is_active : true,
+        updated_at: new Date().toISOString(),
+        updated_by_id: currentPersonId
       };
 
       if (editingMember.id) {
@@ -127,7 +139,10 @@ export default function BandMembersManager({ bandId }: BandMembersManagerProps) 
         // Insert new
         const { error } = await supabase
           .from('band_members')
-          .insert(memberData);
+          .insert({
+            ...memberData,
+            created_by_id: currentPersonId
+          });
         if (error) throw error;
       }
 
@@ -151,7 +166,11 @@ export default function BandMembersManager({ bandId }: BandMembersManagerProps) 
     try {
       const { error } = await supabase
         .from('band_members')
-        .update({ is_active: !member.is_active })
+        .update({ 
+          is_active: !member.is_active,
+          updated_at: new Date().toISOString(),
+          updated_by_id: currentPersonId
+        })
         .eq('id', member.id);
       
       if (error) throw error;

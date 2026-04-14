@@ -46,11 +46,11 @@ export default function EventManager({ bandId, venueId, initialAttentionFilter =
       setLoading(true);
       
       // Base query
-      let selectStr = '*, venues(*), event_genres(genres(name)), profiles!updated_by(first_name, last_name), acts(band_id, bands(name))';
+      let selectStr = '*, venues(*), event_genres(genres(name)), people!updated_by_id(first_name, last_name), acts(band_id, bands:bands_ordered(name))';
       
       // If filtering by band, we need to use !inner to filter the top-level events
       if (bandId) {
-        selectStr = '*, venues(*), event_genres(genres(name)), profiles!updated_by(first_name, last_name), acts!inner(band_id, bands(name))';
+        selectStr = '*, venues(*), event_genres(genres(name)), people!updated_by_id(first_name, last_name), acts!inner(band_id, bands:bands_ordered(name))';
       }
 
       let query = supabase
@@ -67,7 +67,7 @@ export default function EventManager({ bandId, venueId, initialAttentionFilter =
       }
 
       // If no specific filter, check if user is venue manager
-      if (!bandId && !venueId && profile?.roles.includes('venue_manager')) {
+      if (!bandId && !venueId) {
         const { data: myVenues } = await supabase.from('venues').select('id').eq('manager_id', user?.id);
         if (myVenues && myVenues.length > 0) {
           query = query.in('venue_id', myVenues.map(v => v.id));
@@ -131,7 +131,7 @@ export default function EventManager({ bandId, venueId, initialAttentionFilter =
   ).values()) as any[]).sort((a, b) => a.name.localeCompare(b.name));
 
   const handleCopyAsNew = (event: AppEvent) => {
-    const { id, created_at, updated_at, updated_by, ...rest } = event as any;
+    const { id, created_at, updated_at, updated_by_id, ...rest } = event as any;
     const copiedEvent = {
       ...rest,
       start_time: undefined,

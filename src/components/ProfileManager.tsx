@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../AuthContext';
-import { UserRole, MusicianProfile } from '../types';
+import { UserRole, MusicianDetails } from '../types';
 import { Save, Loader2, User, Mail, Shield, Check, Phone, MapPin, Globe, Video, Trash2, Settings, Music, Camera, Eye, Lock, Edit2, X, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatPhoneNumber } from '../lib/phoneFormatter';
-import { US_STATES, CA_PROVINCES, AddressParts, formatAddress, parseAddress, validateZipForState } from '../lib/geo';
+import { US_STATES, CA_PROVINCES, AddressParts, formatAddress, parseAddress, validatePostalCodeForState } from '../lib/geo';
 import { handleSupabaseError, OperationType } from '../lib/error-handler';
 import { updateUserEmail } from '../lib/authService';
-import { getPriorityDefaultRole } from '../lib/utils';
+import { getPriorityDefaultRole, cleanWebsiteUrl } from '../lib/utils';
 import ImageUpload from './ImageUpload';
 import { UploadedImageSet } from '../lib/imageUtils';
 import ProfilePreviewModal from './ProfilePreviewModal';
@@ -21,15 +21,23 @@ import { SearchableSelect } from './ui/SearchableSelect';
 type Tab = 'account' | 'musician' | 'security';
 
 export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDirtyChange?: (dirty: boolean) => void, onSaveSuccess?: () => void }) {
-  const { user, profile, refreshProfile, managedBands, managedVenues } = useAuth();
+  const { user, profile, personId, refreshProfile, managedBands, managedVenues, availableRoles } = useAuth();
   const [activeTab, setActiveTab] = useState<Tab>('account');
+  const [isMusician, setIsMusician] = useState(false);
+  const [isSoloAct, setIsSoloAct] = useState(profile?.is_solo_act || false);
   
   // Account State
   const [firstName, setFirstName] = useState(profile?.first_name || '');
   const [lastName, setLastName] = useState(profile?.last_name || '');
   const [accountPhone, setAccountPhone] = useState(profile?.phone || '');
-  const [addressParts, setAddressParts] = useState<AddressParts>(parseAddress(profile?.address || ''));
-  const [selectedRoles, setSelectedRoles] = useState<UserRole[]>(profile?.roles || []);
+  const [addressParts, setAddressParts] = useState<AddressParts>({
+    address_line1: profile?.address_line1 || '',
+    address_line2: profile?.address_line2 || '',
+    city: profile?.city || '',
+    state: profile?.state || '',
+    postal_code: profile?.postal_code || '',
+    country: (profile?.country as 'US' | 'CA') || 'US'
+  });
   const [defaultRole, setDefaultRole] = useState<UserRole | undefined>(profile?.default_role);
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || '');
   
@@ -44,22 +52,19 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
   const [changingPassword, setChangingPassword] = useState(false);
   
   // Role Request State
-  const [roleRequests, setRoleRequests] = useState<{
-    musician: { active: boolean, details: string }
-  }>({
-    musician: { active: false, details: '' }
+  const [roleRequests, setRoleRequests] = useState<Record<string, { active: boolean, details: string }>>({
+    venue_manager: { active: false, details: '' },
+    band_manager: { active: false, details: '' },
+    promoter: { active: false, details: '' }
   });
 
   // Musician State
-  const [musicianData, setMusicianData] = useState<Partial<MusicianProfile>>({
-    phone: '',
-    website: '',
-    video_links: [],
-    description: '',
+  const [musicianData, setMusicianData] = useState<Partial<MusicianDetails>>({
+    instruments: [],
     looking_for_bands: false,
-    instruments: []
+    open_for_gigs: false
   });
-  const [initialMusicianData, setInitialMusicianData] = useState<Partial<MusicianProfile> | null>(null);
+  const [initialMusicianData, setInitialMusicianData] = useState<Partial<MusicianDetails> | null>(null);
   const [loadingMusician, setLoadingMusician] = useState(false);
 
   const [saving, setSaving] = useState(false);
@@ -93,6 +98,7 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
     try {
       await supabase.from('audit_logs').insert({
         user_id: user?.id,
+        created_by_id: personId,
         table_name: 'profiles',
         record_id: user?.id,
         changes: changes
@@ -111,23 +117,28 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
       lastName !== (profile.last_name || '') ||
       accountPhone !== (profile.phone || '') ||
       avatarUrl !== (profile.avatar_url || '') ||
-      formatAddress(addressParts) !== (profile.address || '') ||
+      addressParts.address_line1 !== (profile.address_line1 || '') ||
+      addressParts.address_line2 !== (profile.address_line2 || '') ||
+      addressParts.city !== (profile.city || '') ||
+      addressParts.state !== (profile.state || '') ||
+      addressParts.postal_code !== (profile.postal_code || '') ||
       defaultRole !== profile.default_role ||
-      JSON.stringify(selectedRoles.sort()) !== JSON.stringify((profile.roles || []).sort());
+      isSoloAct !== (profile.is_solo_act || false);
     
     let isMusicianDirty = false;
     if (initialMusicianData) {
       isMusicianDirty = 
-        musicianData.phone !== initialMusicianData.phone ||
-        musicianData.website !== initialMusicianData.website ||
-        musicianData.description !== initialMusicianData.description ||
+        isMusician !== (!!initialMusicianData.id) ||
+        musicianData.musician_bio !== initialMusicianData.musician_bio ||
         musicianData.looking_for_bands !== initialMusicianData.looking_for_bands ||
-        JSON.stringify(musicianData.video_links) !== JSON.stringify(initialMusicianData.video_links) ||
+        musicianData.open_for_gigs !== initialMusicianData.open_for_gigs ||
         JSON.stringify(musicianData.instruments?.sort()) !== JSON.stringify((initialMusicianData.instruments || []).sort());
+    } else {
+      isMusicianDirty = isMusician;
     }
     
     onDirtyChange?.(isAccountDirty || isMusicianDirty);
-  }, [firstName, lastName, accountPhone, addressParts, selectedRoles, profile, musicianData, initialMusicianData, onDirtyChange]);
+  }, [firstName, lastName, accountPhone, addressParts, profile, musicianData, initialMusicianData, isMusician, isSoloAct, onDirtyChange]);
 
   useEffect(() => {
     console.log('ProfileManager: Profile updated:', profile);
@@ -135,8 +146,14 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
       setFirstName(profile.first_name || '');
       setLastName(profile.last_name || '');
       setAccountPhone(profile.phone || '');
-      setAddressParts(parseAddress(profile.address || ''));
-      setSelectedRoles(profile.roles || []);
+      setAddressParts({
+        address_line1: profile.address_line1 || '',
+        address_line2: profile.address_line2 || '',
+        city: profile.city || '',
+        state: profile.state || '',
+        postal_code: profile.postal_code || '',
+        country: (profile.country as 'US' | 'CA') || 'US'
+      });
       setDefaultRole(profile.default_role);
       setAvatarUrl(profile.avatar_url || '');
       
@@ -164,42 +181,38 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
         fetchPeopleFallback();
       }
 
-      if (profile.roles.includes('musician')) {
-        fetchMusicianProfile();
-      }
+      fetchMusicianProfile();
     }
-  }, [profile, user?.id]);
+  }, [profile, personId]);
 
   async function fetchMusicianProfile() {
     setLoadingMusician(true);
     try {
       const { data, error } = await supabase
-        .from('musicians')
+        .from('musician_details')
         .select('*')
-        .eq('id', user?.id)
-        .single();
+        .eq('id', personId)
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error) throw error;
       
       const defaultMusician = {
-        phone: '',
-        website: '',
-        video_links: [],
-        description: '',
+        instruments: [],
         looking_for_bands: false,
         open_for_gigs: false,
-        instruments: []
+        musician_bio: ''
       };
 
       if (data) {
+        setIsMusician(true);
         const cleanedData = {
           ...defaultMusician,
-          ...data,
-          website: data.website?.replace(/^https?:\/\//, '').replace(/^www\./, '') || ''
+          ...data
         };
         setMusicianData(cleanedData);
         setInitialMusicianData(cleanedData);
       } else {
+        setIsMusician(false);
         setMusicianData(defaultMusician);
         setInitialMusicianData(defaultMusician);
       }
@@ -222,18 +235,6 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
     setMessage(null);
 
     try {
-      // 1. Ensure we have a person record
-      let personId = null;
-      const { data: existingPerson } = await supabase
-        .from('people')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      
-      if (existingPerson) {
-        personId = existingPerson.id;
-      }
-
       // 2. Create the band profile
       const bandName = `${firstName} ${lastName}`.trim() || 'Solo Act';
       
@@ -242,21 +243,35 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
         .insert({
           name: bandName,
           manager_id: user.id,
-          person_id: personId,
-          description: musicianData.description || '',
-          phone: musicianData.phone || accountPhone || '',
-          website: musicianData.website || '',
-          video_links: musicianData.video_links || [],
+          description: musicianData.musician_bio || '',
+          phone: accountPhone || '',
           logo_url: avatarUrl || '',
           city: addressParts.city || '',
           state: addressParts.state || '',
           country: addressParts.country || 'US',
-          is_published: false
+          is_published: false,
+          created_by_id: personId,
+          updated_at: new Date().toISOString(),
+          updated_by_id: personId
         })
         .select()
         .single();
 
       if (bandError) throw bandError;
+
+      // We don't need to select from bands_ordered here as we just inserted and got the data back,
+      // but if we were to fetch it again, we'd use bands_ordered.
+      // The insert already returns the data in the order it was inserted or the table default.
+      // However, to be consistent with "prefer selecting from bands_ordered", 
+      // if we needed to refresh the local state with the canonical order:
+      const { data: orderedBand } = await supabase
+        .from('bands_ordered')
+        .select('*')
+        .eq('id', newBand.id)
+        .single();
+      
+      // Use orderedBand if available, otherwise newBand
+      const finalBand = orderedBand || newBand;
 
       setMessage({ type: 'success', text: 'Solo Act created successfully! You can now manage it from the Admin Dashboard or My Band tab.' });
     } catch (error: any) {
@@ -279,14 +294,7 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
       return;
     }
 
-    // Validate Musician Phone if active
-    if (selectedRoles.includes('musician') && !validatePhone(musicianData.phone || '')) {
-      setMessage({ type: 'error', text: 'Please enter a valid musician phone number (10 digits).' });
-      setSaving(false);
-      return;
-    }
-
-    const zipValidation = validateZipForState(addressParts.zip, addressParts.state, addressParts.country);
+    const zipValidation = validatePostalCodeForState(addressParts.postal_code, addressParts.state, addressParts.country);
     if (!zipValidation.isValid) {
       setMessage({ type: 'error', text: zipValidation.message || 'Invalid Zip/Postal Code for the selected state/province.' });
       setSaving(false);
@@ -304,25 +312,31 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
       if (accountPhone !== (profile?.phone || '')) changes.phone = accountPhone;
       if (avatarUrl !== (profile?.avatar_url || '')) changes.avatar_url = avatarUrl;
       if (defaultRole !== profile?.default_role) changes.default_role = defaultRole;
-      const newAddress = formatAddress(addressParts);
-      if (newAddress !== (profile?.address || '')) changes.address = newAddress;
-      if (JSON.stringify(selectedRoles.sort()) !== JSON.stringify((profile?.roles || []).sort())) changes.roles = selectedRoles;
+      if (addressParts.address_line1 !== (profile?.address_line1 || '')) changes.address_line1 = addressParts.address_line1;
+      if (addressParts.address_line2 !== (profile?.address_line2 || '')) changes.address_line2 = addressParts.address_line2;
+      if (addressParts.city !== (profile?.city || '')) changes.city = addressParts.city;
+      if (addressParts.state !== (profile?.state || '')) changes.state = addressParts.state;
+      if (addressParts.postal_code !== (profile?.postal_code || '')) changes.postal_code = addressParts.postal_code;
+      if (addressParts.country !== (profile?.country || 'US')) changes.country = addressParts.country;
+      if (JSON.stringify(selectedRoles.sort()) !== JSON.stringify((availableRoles || []).sort())) changes.roles = selectedRoles;
 
       // 1. Save Profile
-      const rolesToSave = [...selectedRoles];
-      if (profile?.roles.includes('admin') && !rolesToSave.includes('admin')) rolesToSave.push('admin');
-      if (profile?.roles.includes('syndication_manager') && !rolesToSave.includes('syndication_manager')) rolesToSave.push('syndication_manager');
-
       const profileData: any = {
         id: user.id,
         email: user.email,
         first_name: firstName,
         last_name: lastName,
         phone: accountPhone,
-        address: newAddress,
-        roles: rolesToSave,
+        address_line1: addressParts.address_line1,
+        address_line2: addressParts.address_line2,
+        city: addressParts.city,
+        state: addressParts.state,
+        postal_code: addressParts.postal_code,
+        country: addressParts.country,
         default_role: defaultRole,
-        avatar_url: avatarUrl
+        avatar_url: avatarUrl,
+        updated_at: new Date().toISOString(),
+        updated_by_id: personId
       };
 
       let { error: profileError } = await supabase
@@ -350,10 +364,9 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
         first_name: firstName,
         last_name: lastName,
         phone: accountPhone,
-        roles: rolesToSave,
         default_role: defaultRole,
         updated_at: new Date().toISOString(),
-        updated_by: user.id,
+        updated_by_id: personId,
         avatar_url: avatarUrl
       };
 
@@ -375,36 +388,35 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
         console.warn('Failed to sync with people table:', peopleError);
       }
 
-      // 3. Save Musician Profile if role is selected
+      // 3. Save Musician Details
       if (selectedRoles.includes('musician')) {
-        let finalWebsite = musicianData.website || '';
-        if (finalWebsite && !finalWebsite.startsWith('http')) {
-          finalWebsite = `https://${finalWebsite}`;
-        }
-
         const { error: musicianError } = await supabase
-          .from('musicians')
+          .from('musician_details')
           .upsert({
-            id: user.id,
-            phone: musicianData.phone || '',
-            website: finalWebsite,
-            video_links: musicianData.video_links || [],
-            description: musicianData.description || '',
-            looking_for_bands: musicianData.looking_for_bands || false,
-            open_for_gigs: musicianData.open_for_gigs || false,
-            instruments: musicianData.instruments || []
+            id: personId,
+            ...musicianData,
+            updated_at: new Date().toISOString(),
+            updated_by_id: personId
           }, { 
             onConflict: 'id' 
           });
 
         if (musicianError) {
-          await handleSupabaseError(musicianError, OperationType.UPDATE, 'musicians');
+          await handleSupabaseError(musicianError, OperationType.UPDATE, 'musician_details');
         }
         
-        // Update local musician state
-        const updatedMusician = { ...musicianData, website: finalWebsite.replace(/^https?:\/\//, '').replace(/^www\./, '') };
-        setMusicianData(updatedMusician);
-        setInitialMusicianData(updatedMusician);
+        setInitialMusicianData(musicianData);
+      } else if (initialMusicianData) {
+        // If they unchecked musician, delete the record to remove the role
+        const { error: deleteError } = await supabase
+          .from('musician_details')
+          .delete()
+          .eq('id', personId);
+          
+        if (deleteError) {
+          console.error('Error deleting musician details:', deleteError);
+        }
+        setInitialMusicianData(null);
       }
 
       // 4. Save Role Requests
@@ -489,8 +501,8 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
   };
 
   const publicRoles: { id: UserRole, label: string, description: string }[] = [
-    { id: 'musician', label: 'Musician', description: 'Showcase your talent and find bands.' },
-    { id: 'guest', label: 'Guest', description: 'Find and follow your favorite music.' },
+    { id: 'musician', label: 'Musician', description: 'Showcase your talent, find bands, and list yourself for gigs.' },
+    { id: 'registered_guest', label: 'Registered Guest', description: 'Follow your favorite bands and venues, and save event preferences.' },
   ];
 
   const toggleRole = (roleId: UserRole) => {
@@ -498,7 +510,7 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
     if (selectedRoles.includes(roleId)) {
       // Don't allow removing the last public role if not an admin
       const currentPublicRoles = selectedRoles.filter(r => publicRoles.some(pr => pr.id === r));
-      if (currentPublicRoles.length <= 1 && !profile?.roles.includes('admin')) {
+      if (currentPublicRoles.length <= 1 && !profile?.is_super_admin) {
         return;
       }
       nextRoles = selectedRoles.filter(r => r !== roleId);
@@ -764,13 +776,23 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
                     </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="md:col-span-2 space-y-2">
+                    <div className="space-y-2">
                       <Input
                         label="Street Address"
                         type="text"
-                        value={addressParts.street || ''}
-                        onChange={(e) => setAddressParts({ ...addressParts, street: e.target.value })}
+                        icon={<MapPin size={18} className="text-neutral-400" />}
+                        value={addressParts.address_line1 || ''}
+                        onChange={(e) => setAddressParts({ ...addressParts, address_line1: e.target.value })}
                         placeholder="123 Music Ave"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Input
+                        label="Apt, Suite, etc. (Optional)"
+                        type="text"
+                        value={addressParts.address_line2 || ''}
+                        onChange={(e) => setAddressParts({ ...addressParts, address_line2: e.target.value })}
+                        placeholder="Suite 100"
                       />
                     </div>
                     <div className="space-y-2">
@@ -792,10 +814,10 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
                       />
                       <div className="space-y-2">
                         <Input
-                          label="Zip/Postal"
+                          label={addressParts.country === 'US' ? 'Zip Code' : 'Postal Code'}
                           type="text"
-                          value={addressParts.zip || ''}
-                          onChange={(e) => setAddressParts({ ...addressParts, zip: e.target.value })}
+                          value={addressParts.postal_code || ''}
+                          onChange={(e) => setAddressParts({ ...addressParts, postal_code: e.target.value })}
                           placeholder={addressParts.country === 'US' ? '37201' : 'M5V 2T6'}
                         />
                       </div>
@@ -838,10 +860,11 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
                 <div className="p-4 sm:p-6 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-6 animate-in fade-in slide-in-from-top-2">
                   <p className="text-neutral-400 text-sm">Select the roles you would like to request access for. An admin will review your request.</p>
 
-                  {(['musician'] as const).map((role) => (
+                  {/* Self-assignment is now handled via publicRoles mapping above */}
+                  {(['venue_manager', 'band_manager', 'promoter'] as const).map((role) => (
                     <div key={role} className="space-y-4 p-6 bg-neutral-800/30 border border-neutral-700/50 rounded-3xl">
                       <div className="flex items-center justify-between">
-                        <label className="text-sm font-bold text-white uppercase tracking-widest">I am also an active {role.replace('_', ' ')}</label>
+                        <label className="text-sm font-bold text-white uppercase tracking-widest">Request {role === 'promoter' ? 'Promoter' : role.replace('_', ' ')} Access</label>
                         <div className="flex items-center gap-4">
                           <Button
                             type="button"
@@ -865,7 +888,7 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
                         <Textarea
                           value={roleRequests[role].details}
                           onChange={(e) => setRoleRequests(prev => ({ ...prev, [role]: { ...prev[role], details: e.target.value } }))}
-                          placeholder={`Tell us more about your role as a ${role.replace('_', ' ')}...`}
+                          placeholder={`Tell us more about why you need ${role === 'promoter' ? 'Promoter' : role.replace('_', ' ')} access...`}
                           rows={3}
                         />
                       )}
@@ -880,10 +903,61 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
               <SectionHeader id="account_roles" title="Account Roles" icon={Settings} />
               {expandedSection === 'account_roles' && (
                 <div className="p-4 sm:p-6 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-6 animate-in fade-in slide-in-from-top-2">
-                  <div className="p-6 bg-neutral-800/30 border border-neutral-700/50 rounded-3xl">
-                    <p className="text-xs text-neutral-400 leading-relaxed italic">
-                      Note: To become a <span className="text-white font-bold">Venue Manager</span>, <span className="text-white font-bold">Band Manager</span>, or <span className="text-white font-bold">Musician</span>, please contact the site administrator for approval and account linking.
-                    </p>
+                  <div className="space-y-4">
+                    <div className="p-6 bg-neutral-800/30 border border-neutral-700/50 rounded-3xl">
+                      <p className="text-xs text-neutral-400 leading-relaxed italic">
+                        <span className="text-white font-bold">Registered Guest</span> is your baseline role. 
+                        <span className="text-white font-bold ml-1">Musician</span> can be self-assigned below. 
+                        <span className="text-white font-bold ml-1">Promoter</span>, <span className="text-white font-bold">Venue Manager</span>, and <span className="text-white font-bold">Band Manager</span> roles require admin assignment.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4">
+                      {publicRoles.map((role) => (
+                        <div 
+                          key={role.id}
+                          onClick={() => toggleRole(role.id)}
+                          className={`p-6 rounded-3xl border-2 transition-all cursor-pointer flex items-center justify-between group ${
+                            selectedRoles.includes(role.id)
+                              ? 'bg-red-600/10 border-red-600/50'
+                              : 'bg-neutral-800/30 border-neutral-700/50 hover:border-neutral-600'
+                          }`}
+                        >
+                          <div className="space-y-1">
+                            <h4 className={`font-bold uppercase tracking-widest text-sm ${
+                              selectedRoles.includes(role.id) ? 'text-white' : 'text-neutral-400 group-hover:text-neutral-300'
+                            }`}>
+                              {role.label}
+                            </h4>
+                            <p className="text-xs text-neutral-500 leading-relaxed max-w-md">
+                              {role.description}
+                            </p>
+                          </div>
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                            selectedRoles.includes(role.id)
+                              ? 'bg-red-600 border-red-600'
+                              : 'border-neutral-700'
+                          }`}>
+                            {selectedRoles.includes(role.id) && <Check size={14} className="text-white" />}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Show assigned business partner roles that are not self-assignable */}
+                    {selectedRoles.some(r => ['promoter', 'venue_manager', 'band_manager'].includes(r)) && (
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-500 px-2">Assigned Business Partner Roles</label>
+                        <div className="flex flex-wrap gap-2 px-2">
+                          {selectedRoles.filter(r => ['promoter', 'venue_manager', 'band_manager'].includes(r)).map(role => (
+                            <div key={role} className="px-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-lg text-[10px] font-bold uppercase tracking-widest text-neutral-300 flex items-center gap-2">
+                              <Shield size={12} className="text-red-500" />
+                              {role === 'promoter' ? 'Promoter' : role.replace('_', ' ')}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {selectedRoles.length > 1 && (
@@ -895,7 +969,7 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
                       <p className="text-xs text-neutral-400">Choose which role should be active by default when you log in. You can always switch roles using the switcher in the navigation bar.</p>
                       <div className="flex flex-wrap gap-2">
                         {selectedRoles.map((roleId) => {
-                          const roleInfo = publicRoles.find(pr => pr.id === roleId) || (roleId === 'admin' ? { label: 'Super Admin' } : { label: roleId.replace('_', ' ') });
+                          const roleInfo = publicRoles.find(pr => pr.id === roleId) || (roleId === 'super_admin' ? { label: 'Super Admin' } : { label: roleId.replace('_', ' ') });
                           return (
                             <Button
                               key={roleId}
@@ -965,33 +1039,12 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <Input
-                        label="Musician Phone"
-                        type="tel"
-                        value={musicianData.phone || ''}
-                        onChange={(e) => setMusicianData({ ...musicianData, phone: formatPhoneNumber(e.target.value) })}
-                        placeholder="(555) 000-0000"
-                        icon={<Phone size={18} className={musicianData.phone && !validatePhone(musicianData.phone) ? 'text-red-500' : 'text-neutral-500'} />}
-                        className={musicianData.phone && !validatePhone(musicianData.phone) ? 'border-red-500/50' : ''}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Input
-                        label="Personal Website"
-                        type="text"
-                        value={musicianData.website || ''}
-                        onChange={(e) => setMusicianData({ ...musicianData, website: e.target.value })}
-                        placeholder="www.yourname.com"
-                        icon={<Globe size={18} className="text-neutral-500" />}
-                      />
-                    </div>
                     <div className="space-y-2 md:col-span-2">
                       <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Bio / Description</label>
                       <Textarea
                         rows={4}
-                        value={musicianData.description || ''}
-                        onChange={(e) => setMusicianData({ ...musicianData, description: e.target.value })}
+                        value={musicianData.musician_bio || ''}
+                        onChange={(e) => setMusicianData({ ...musicianData, musician_bio: e.target.value })}
                         placeholder="Tell us about your musical journey..."
                       />
                     </div>
@@ -1000,9 +1053,9 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
               )}
             </div>
 
-            {/* Instruments & Videos Section */}
+            {/* Instruments Section */}
             <div className="space-y-4">
-              <SectionHeader id="musician_media" title="Instruments & Videos" icon={Video} />
+              <SectionHeader id="musician_media" title="Instruments" icon={Music} />
               {expandedSection === 'musician_media' && (
                 <div className="p-4 sm:p-6 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-6 animate-in fade-in slide-in-from-top-2">
                   <div className="space-y-4">
@@ -1029,40 +1082,6 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
                           {inst}
                         </button>
                       ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Video Links (Up to 5)</label>
-                      <span className="text-xs text-neutral-400">{musicianData.video_links?.length || 0} / 5</span>
-                    </div>
-                    <div className="space-y-2">
-                      {musicianData.video_links?.map((link, idx) => (
-                        <div key={idx} className="flex gap-2">
-                          <div className="flex-1 bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm text-neutral-300 truncate">{link}</div>
-                          <button
-                            type="button"
-                            onClick={() => setMusicianData({ ...musicianData, video_links: musicianData.video_links?.filter((_, i) => i !== idx) })}
-                            className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
-                          >
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      ))}
-                      {(musicianData.video_links?.length || 0) < 5 && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const url = prompt('Enter video URL:');
-                            if (url) setMusicianData({ ...musicianData, video_links: [...(musicianData.video_links || []), url] });
-                          }}
-                          className="w-full border border-dashed border-neutral-700 rounded-xl py-3 text-neutral-400 hover:border-red-600 hover:text-red-500 transition-all flex items-center justify-center gap-2"
-                        >
-                          <Video size={18} />
-                          <span className="text-sm font-bold uppercase tracking-widest">Add Video Link</span>
-                        </button>
-                      )}
                     </div>
                   </div>
                 </div>

@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Venue } from '../types';
 import { Search, Loader2, MapPin, Star } from 'lucide-react';
-import { displayAddress } from '../lib/geo';
-import { formatDate } from '../lib/utils';
+import { formatDate, cn } from '../lib/utils';
 import ProfilePreviewModal from '../components/ProfilePreviewModal';
 import { Button } from '../components/ui/Button';
 import { useAuth } from '../AuthContext';
@@ -44,7 +43,7 @@ export function VenuesView() {
     try {
       const { data, error } = await supabase
         .from('venues')
-        .select('*, venue_genres(genres(name)), profiles!updated_by(first_name, last_name)')
+        .select('*, venue_genres(genres(name)), people!updated_by_id(first_name, last_name)')
         .or('is_archived.is.null,is_archived.eq.false')
         .order('name');
       if (error) {
@@ -88,15 +87,30 @@ export function VenuesView() {
             />
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <Button
-            variant={showFavorites ? 'primary' : 'secondary'}
-            onClick={() => setShowFavorites(!showFavorites)}
-            className="flex items-center gap-2"
+        <div className="flex p-1 bg-neutral-900 border border-neutral-800 rounded-xl">
+          <button
+            onClick={() => setShowFavorites(false)}
+            className={cn(
+              "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+              !showFavorites 
+                ? "bg-neutral-800 text-white shadow-sm" 
+                : "text-neutral-500 hover:text-neutral-300"
+            )}
           >
-            <Star size={18} fill={showFavorites ? 'currentColor' : 'none'} />
-            <span className="text-sm font-medium">Favorites</span>
-          </Button>
+            All
+          </button>
+          <button
+            onClick={() => setShowFavorites(true)}
+            className={cn(
+              "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2",
+              showFavorites 
+                ? "bg-blue-600 text-white shadow-sm" 
+                : "text-neutral-500 hover:text-neutral-300"
+            )}
+          >
+            <Star size={12} fill={showFavorites ? 'currentColor' : 'none'} />
+            Favorites
+          </button>
         </div>
       </div>
       
@@ -130,7 +144,7 @@ export function VenuesView() {
                     ))}
                   </div>
                   <h3 className="text-xl font-bold mb-0.5 truncate">{venue.name}</h3>
-                  <p className="text-neutral-400 text-xs mb-2 truncate">{displayAddress(venue.address)}</p>
+                  <p className="text-neutral-400 text-xs mb-2 truncate">{[venue.address_line1, venue.city, venue.state].filter(Boolean).join(', ')}</p>
                   <p className="text-neutral-400 line-clamp-2 text-xs leading-relaxed">{venue.description}</p>
                   {(venue as any).updated_at && (
                     <p className="text-[9px] text-neutral-600 mt-2">
@@ -143,9 +157,11 @@ export function VenuesView() {
           })}
         </div>
       ) : (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-12 text-center">
-          <MapPin className="mx-auto text-neutral-700 mb-4" size={48} />
-          <p className="text-neutral-400">No venues found.</p>
+        <div className="bg-neutral-900/50 border border-neutral-800/50 rounded-3xl p-12 text-center">
+          <MapPin className="mx-auto text-neutral-800 mb-4" size={48} />
+          <p className="text-neutral-500 text-sm font-medium">
+            {showFavorites ? "No favorites yet." : "No venues found."}
+          </p>
         </div>
       )}
 

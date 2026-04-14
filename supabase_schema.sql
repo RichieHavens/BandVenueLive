@@ -4,7 +4,7 @@
 */
 
 -- 1. Roles Enum
-CREATE TYPE user_role AS ENUM ('venue_manager', 'band_manager', 'musician', 'guest', 'syndication_manager', 'admin');
+CREATE TYPE user_role AS ENUM ('venue_manager', 'band_manager', 'musician', 'registered_guest', 'promoter', 'super_admin');
 
 -- 2. Profiles Table (Extends Auth)
 CREATE TABLE profiles (
@@ -15,9 +15,12 @@ CREATE TABLE profiles (
   phone TEXT,
   address TEXT,
   avatar_url TEXT,
-  roles user_role[] DEFAULT '{attendee}',
+  is_super_admin BOOLEAN DEFAULT FALSE,
   last_login_at TIMESTAMP WITH TIME ZONE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by_id UUID REFERENCES people(id),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_by_id UUID REFERENCES people(id)
 );
 
 -- 2.1 Login Logs Table
@@ -40,7 +43,7 @@ CREATE POLICY "Admins can view all login logs" ON login_logs
   FOR SELECT USING (
     EXISTS (
       SELECT 1 FROM profiles 
-      WHERE id = auth.uid() AND 'admin' = ANY(roles)
+      WHERE id = auth.uid() AND 'super_admin' = ANY(roles)
     )
   );
 
@@ -52,14 +55,16 @@ CREATE TABLE people (
   last_name TEXT,
   email TEXT UNIQUE,
   phone TEXT,
-  roles user_role[] DEFAULT '{attendee}',
+  is_super_admin BOOLEAN DEFAULT FALSE,
+  is_solo_act BOOLEAN DEFAULT FALSE,
   venue_ids UUID[] DEFAULT '{}',
   band_ids UUID[] DEFAULT '{}',
   last_login_at TIMESTAMP WITH TIME ZONE,
   avatar_url TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by_id UUID REFERENCES people(id),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_by UUID REFERENCES profiles(id)
+  updated_by_id UUID REFERENCES people(id)
 );
 
 -- Trigger to create profile on signup
@@ -69,8 +74,8 @@ DECLARE
   existing_person_id UUID;
 BEGIN
   -- 1. Create the profile
-  INSERT INTO public.profiles (id, email, roles)
-  VALUES (new.id, new.email, '{guest}');
+  INSERT INTO public.profiles (id, email)
+  VALUES (new.id, new.email);
 
   -- 2. Check if this person already exists in our master list by email
   SELECT id INTO existing_person_id FROM public.people WHERE email = new.email;
@@ -78,10 +83,10 @@ BEGIN
   IF existing_person_id IS NOT NULL THEN
     -- Link existing person to the new user account
     UPDATE public.people SET user_id = new.id WHERE id = existing_person_id;
-    -- Copy roles and other info from people table to the new profile
+    -- Copy info from people table to the new profile
     UPDATE public.profiles p 
     SET 
-      roles = pe.roles,
+      is_super_admin = pe.is_super_admin,
       first_name = COALESCE(p.first_name, pe.first_name),
       last_name = COALESCE(p.last_name, pe.last_name),
       phone = COALESCE(p.phone, pe.phone)
@@ -105,10 +110,10 @@ CREATE TRIGGER on_auth_user_created
 CREATE OR REPLACE FUNCTION public.sync_venue_to_people()
 RETURNS trigger AS $$
 BEGIN
-  IF (NEW.person_id IS NOT NULL) THEN
+  IF (NEW.created_by_id IS NOT NULL) THEN
     UPDATE public.people 
     SET venue_ids = array_append(array_remove(venue_ids, NEW.id), NEW.id)
-    WHERE id = NEW.person_id;
+    WHERE id = NEW.created_by_id;
   END IF;
   RETURN NEW;
 END;
@@ -122,10 +127,10 @@ CREATE TRIGGER on_venue_upsert
 CREATE OR REPLACE FUNCTION public.sync_band_to_people()
 RETURNS trigger AS $$
 BEGIN
-  IF (NEW.person_id IS NOT NULL) THEN
+  IF (NEW.created_by_id IS NOT NULL) THEN
     UPDATE public.people 
     SET band_ids = array_append(array_remove(band_ids, NEW.id), NEW.id)
-    WHERE id = NEW.person_id;
+    WHERE id = NEW.created_by_id;
   END IF;
   RETURN NEW;
 END;
@@ -145,7 +150,7 @@ BEGIN
       first_name = COALESCE(NEW.first_name, first_name),
       last_name = COALESCE(NEW.last_name, last_name),
       phone = COALESCE(NEW.phone, phone),
-      roles = NEW.roles
+      is_super_admin = NEW.is_super_admin
     WHERE id = NEW.user_id;
   END IF;
   RETURN NEW;
@@ -159,7 +164,11 @@ CREATE TRIGGER on_people_upsert
 -- 3. Genres Table
 CREATE TABLE genres (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  name TEXT UNIQUE NOT NULL
+  name TEXT UNIQUE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by_id UUID REFERENCES people(id),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_by_id UUID REFERENCES people(id)
 );
 
 -- 4. Venues Table
@@ -169,14 +178,15 @@ CREATE TABLE venues (
   name TEXT NOT NULL,
   description TEXT,
   address TEXT, -- Combined address string
-  street TEXT,
+  address_line1 TEXT,
+  address_line2 TEXT,
   city TEXT,
   state TEXT,
-  zip TEXT,
+  postal_code TEXT,
   country TEXT DEFAULT 'US',
   phone TEXT,
   email TEXT,
-  website TEXT,
+  website_url TEXT,
   food_description TEXT,
   tech_specs TEXT,
   logo_url TEXT,
@@ -190,12 +200,18 @@ CREATE TABLE venues (
   spotify_url TEXT,
   facebook_url TEXT,
   twitter_url TEXT,
+  x_url TEXT,
+  tiktok_url TEXT,
+  soundcloud_url TEXT,
+  bandcamp_url TEXT,
   images TEXT[] DEFAULT '{}', -- URLs to images
+  is_confirmed BOOLEAN DEFAULT FALSE,
+  is_published BOOLEAN DEFAULT FALSE,
   is_seed BOOLEAN DEFAULT FALSE, -- Forensic seed data
-  person_id UUID REFERENCES people(id),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE,
-  updated_by UUID REFERENCES profiles(id)
+  created_by_id UUID REFERENCES people(id),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_by_id UUID REFERENCES people(id)
 );
 
 -- 5. Bands Table
@@ -204,15 +220,15 @@ CREATE TABLE bands (
   manager_id UUID REFERENCES profiles(id),
   name TEXT NOT NULL,
   description TEXT,
-  address TEXT, -- Combined address string
-  street TEXT,
+  address_line1 TEXT,
+  address_line2 TEXT,
   city TEXT,
   state TEXT,
-  zip TEXT,
+  postal_code TEXT,
   country TEXT DEFAULT 'US',
   phone TEXT,
   email TEXT,
-  website TEXT,
+  website_url TEXT,
   logo_url TEXT,
   hero_url TEXT,
   linkedin_url TEXT,
@@ -223,26 +239,34 @@ CREATE TABLE bands (
   spotify_url TEXT,
   facebook_url TEXT,
   twitter_url TEXT,
+  x_url TEXT,
+  tiktok_url TEXT,
+  soundcloud_url TEXT,
+  bandcamp_url TEXT,
   images TEXT[] DEFAULT '{}',
   video_links TEXT[] DEFAULT '{}',
-  geography TEXT DEFAULT 'Local' CHECK (geography IN ('Local', 'Regional', 'National')),
+  travel_region TEXT DEFAULT 'Local' CHECK (travel_region IN ('Local', 'Regional', 'National')),
+  is_confirmed BOOLEAN DEFAULT FALSE,
+  is_published BOOLEAN DEFAULT FALSE,
   is_seed BOOLEAN DEFAULT FALSE, -- Forensic seed data
-  person_id UUID REFERENCES people(id),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE,
-  updated_by UUID REFERENCES profiles(id)
+  created_by_id UUID REFERENCES people(id),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_by_id UUID REFERENCES people(id)
 );
 
--- 6. Musicians Table (Detailed profile)
-CREATE TABLE musicians (
-  id UUID REFERENCES profiles(id) PRIMARY KEY,
-  phone TEXT,
-  website TEXT,
-  video_links TEXT[] DEFAULT '{}',
-  description TEXT,
-  looking_for_bands BOOLEAN DEFAULT FALSE,
+-- 6. Musician Details Table (Detailed profile)
+CREATE TABLE musician_details (
+  id UUID REFERENCES people(id) PRIMARY KEY,
   instruments TEXT[] DEFAULT '{}',
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  vocal_type TEXT,
+  musician_bio TEXT,
+  looking_for_bands BOOLEAN DEFAULT FALSE,
+  open_for_gigs BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by_id UUID REFERENCES people(id),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_by_id UUID REFERENCES people(id)
 );
 
 -- 7. Events Table
@@ -260,12 +284,14 @@ CREATE TABLE events (
   band_confirmed BOOLEAN DEFAULT FALSE,
   is_public BOOLEAN DEFAULT FALSE,
   is_published BOOLEAN DEFAULT FALSE,
+  promoter_confirmed BOOLEAN DEFAULT FALSE,
   hero_url TEXT,
   bag_policy TEXT,
   is_seed BOOLEAN DEFAULT FALSE, -- Forensic seed data
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE,
-  updated_by UUID REFERENCES profiles(id)
+  created_by_id UUID REFERENCES people(id),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_by_id UUID REFERENCES people(id)
 );
 
 -- 8. Acts Table (Part of an Event)
@@ -275,7 +301,10 @@ CREATE TABLE acts (
   band_id UUID REFERENCES bands(id),
   start_time TIMESTAMP WITH TIME ZONE,
   is_seed BOOLEAN DEFAULT FALSE, -- Forensic seed data
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by_id UUID REFERENCES people(id),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_by_id UUID REFERENCES people(id)
 );
 
 -- 9. Venue Sponsors
@@ -285,13 +314,20 @@ CREATE TABLE venue_sponsors (
   name TEXT NOT NULL,
   description TEXT,
   logo_url TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by_id UUID REFERENCES people(id),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_by_id UUID REFERENCES people(id)
 );
 
 -- 10. Event Sponsors (Link table)
 CREATE TABLE event_sponsors (
   event_id UUID REFERENCES events(id) ON DELETE CASCADE,
   sponsor_id UUID REFERENCES venue_sponsors(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by_id UUID REFERENCES people(id),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_by_id UUID REFERENCES people(id),
   PRIMARY KEY (event_id, sponsor_id)
 );
 
@@ -306,13 +342,16 @@ CREATE TABLE global_sponsors (
   description TEXT,
   image_url TEXT,
   logo_url TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by_id UUID REFERENCES people(id),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_by_id UUID REFERENCES people(id)
 );
 
 -- 12. Syndication Locations
 CREATE TABLE syndication_locations (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  website TEXT NOT NULL,
+  website_url TEXT NOT NULL,
   contact_first_name TEXT,
   contact_last_name TEXT,
   phone TEXT,
@@ -320,7 +359,10 @@ CREATE TABLE syndication_locations (
   description TEXT,
   image_url TEXT,
   logo_url TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by_id UUID REFERENCES people(id),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_by_id UUID REFERENCES people(id)
 );
 
 -- 13. Favorites (Attendees)
@@ -330,6 +372,9 @@ CREATE TABLE favorites (
   target_id UUID NOT NULL, -- Can be venue_id, band_id, or musician_id
   target_type TEXT NOT NULL CHECK (target_type IN ('venue', 'band', 'musician')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by_id UUID REFERENCES people(id),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_by_id UUID REFERENCES people(id),
   UNIQUE(user_id, target_id, target_type)
 );
 
@@ -337,18 +382,30 @@ CREATE TABLE favorites (
 CREATE TABLE band_genres (
   band_id UUID REFERENCES bands(id) ON DELETE CASCADE,
   genre_id UUID REFERENCES genres(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by_id UUID REFERENCES people(id),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_by_id UUID REFERENCES people(id),
   PRIMARY KEY (band_id, genre_id)
 );
 
 CREATE TABLE event_genres (
   event_id UUID REFERENCES events(id) ON DELETE CASCADE,
   genre_id UUID REFERENCES genres(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by_id UUID REFERENCES people(id),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_by_id UUID REFERENCES people(id),
   PRIMARY KEY (event_id, genre_id)
 );
 
 CREATE TABLE venue_genres (
   venue_id UUID REFERENCES venues(id) ON DELETE CASCADE,
   genre_id UUID REFERENCES genres(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by_id UUID REFERENCES people(id),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_by_id UUID REFERENCES people(id),
   PRIMARY KEY (venue_id, genre_id)
 );
 
@@ -357,6 +414,10 @@ CREATE TABLE band_musicians (
   band_id UUID REFERENCES bands(id) ON DELETE CASCADE,
   musician_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
   is_primary BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by_id UUID REFERENCES people(id),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_by_id UUID REFERENCES people(id),
   PRIMARY KEY (band_id, musician_id)
 );
 
@@ -368,7 +429,11 @@ CREATE TABLE disclaimer_acceptances (
   url TEXT NOT NULL,
   user_agent TEXT,
   ip_address TEXT, -- Optional, for forensic tracking
-  session_id TEXT -- For anonymous tracking
+  session_id TEXT, -- For anonymous tracking
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by_id UUID REFERENCES people(id),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_by_id UUID REFERENCES people(id)
 );
 
 -- 17. Audit Logs
@@ -378,7 +443,10 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   table_name TEXT NOT NULL,
   record_id UUID NOT NULL,
   changes JSONB NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by_id UUID REFERENCES people(id),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_by_id UUID REFERENCES people(id)
 );
 
 -- 18. Booking Inquiries
@@ -392,7 +460,9 @@ CREATE TABLE IF NOT EXISTS booking_inquiries (
   message TEXT,
   proposed_date TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  created_by_id UUID REFERENCES people(id),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_by_id UUID REFERENCES people(id)
 );
 
 ALTER TABLE booking_inquiries ENABLE ROW LEVEL SECURITY;
@@ -426,7 +496,7 @@ BEGIN
     EXISTS (
       SELECT 1 FROM public.profiles
       WHERE id = auth.uid()
-      AND 'admin' = ANY(roles)
+      AND 'super_admin' = ANY(roles)
     )
     OR (auth.jwt() ->> 'email' = 'rickheavern@gmail.com')
   );
@@ -466,7 +536,7 @@ CREATE POLICY "Managers can see other people for booking" ON people FOR SELECT U
       AND (
         'venue_manager' = ANY(profiles.roles) OR 
         'band_manager' = ANY(profiles.roles) OR
-        'admin' = ANY(profiles.roles)
+        'super_admin' = ANY(profiles.roles)
       )
     )
 );

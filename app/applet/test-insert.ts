@@ -8,7 +8,7 @@ async function run() {
   const { data, error } = await supabase.from('people').insert({
     first_name: 'Test',
     last_name: 'NoEmail',
-    roles: ['guest'],
+    roles: ['registered_guest'],
     venue_ids: [],
     band_ids: []
   }).select();

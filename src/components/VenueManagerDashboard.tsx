@@ -6,7 +6,6 @@ import {
   Copy, Loader2, MapPin, ChevronRight, Clock
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { displayAddress } from '../lib/geo';
 import { Card } from './ui/Card';
 import { StatusBadge, EventStatus } from './ui/StatusBadge';
 import { Button } from './ui/Button';
@@ -55,7 +54,7 @@ export default function VenueManagerDashboard({ venues, onNavigate }: VenueManag
         const venueIds = venues.map(v => v.id);
         const { data, error } = await supabase
           .from('events')
-          .select('*, acts(*, bands(name))')
+          .select('*, acts(*, bands:bands_ordered(name))')
           .in('venue_id', venueIds);
 
         if (error) throw error;
@@ -400,7 +399,7 @@ export default function VenueManagerDashboard({ venues, onNavigate }: VenueManag
                       <h4 className="font-bold text-lg">{venue.name}</h4>
                       <p className="text-neutral-400 text-sm flex items-center gap-1">
                         <MapPin size={12} />
-                        {displayAddress(venue.address)}
+                        {[venue.address_line1, venue.city, venue.state].filter(Boolean).join(', ')}
                       </p>
                     </div>
                     <Button variant="ghost" size="sm" onClick={() => onNavigate('events', venue.id)}>

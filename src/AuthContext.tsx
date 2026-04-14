@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from './lib/supabase';
 import { Profile, UserRole, RoleMaster } from './types';
@@ -8,8 +8,14 @@ interface AuthContextType {
   profile: Profile | null;
   activeRole: UserRole | null;
   roleData: RoleMaster | null;
+  personId: string | null;
   loading: boolean;
   isSuperAdmin: boolean;
+  isMusician: boolean;
+  isBandManager: boolean;
+  isVenueManager: boolean;
+  isSoloAct: boolean;
+  availableRoles: UserRole[];
   managedBands: { id: string; name: string }[];
   managedVenues: { id: string; name: string }[];
   signOut: () => Promise<void>;
@@ -25,9 +31,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [activeRole, setActiveRoleState] = useState<UserRole | null>(null);
   const [roleData, setRoleData] = useState<RoleMaster | null>(null);
+  const [personId, setPersonId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [managedBands, setManagedBands] = useState<{ id: string; name: string }[]>([]);
   const [managedVenues, setManagedVenues] = useState<{ id: string; name: string }[]>([]);
+  const [isMusician, setIsMusician] = useState(false);
+  const [isSoloAct, setIsSoloAct] = useState(false);
+
+  const availableRoles = useMemo(() => {
+    const roles: UserRole[] = ['registered_guest'];
+    if (profile?.is_super_admin) roles.push('super_admin');
+    if (managedBands.length > 0) roles.push('band_manager');
+    if (managedVenues.length > 0) roles.push('venue_manager');
+    if (isMusician) roles.push('musician');
+    // Promoter role might still need a flag or be inferred elsewhere, 
+    // for now keeping it simple or adding it if they have promoter-specific records
+    return roles;
+  }, [profile?.is_super_admin, managedBands.length, managedVenues.length, isMusician]);
 
   useEffect(() => {
     console.log('AuthContext: user changed', user);
@@ -44,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log('AuthContext: Fetching managed bands for', user?.id);
     try {
       const { data, error } = await supabase
-        .from('bands')
+        .from('bands_ordered')
         .select('id, name')
         .eq('manager_id', user?.id);
       if (error) {
@@ -103,12 +123,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [activeRole]);
 
   const setActiveRole = (role: UserRole) => {
-    if (profile && !profile.roles.includes(role)) {
+    if (!availableRoles.includes(role)) {
       console.warn(`User does not have the role: ${role}`);
       return;
     }
     setActiveRoleState(role);
-    // Optionally persist this to local storage for the session
     localStorage.setItem('active_role', role);
   };
 
@@ -165,7 +184,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         .single();
 
       // 2. Also check the people table for this user (by user_id or email)
-      // We do this separately to avoid issues with special characters (like +) in .or() strings
       let { data: personData, error: personError } = await supabase
         .from('people')
         .select('*')
@@ -194,9 +212,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await supabase.from('people').update({ user_id: userId }).eq('id', personData.id);
       }
 
+      // 3. Check for musician details
+      let musicianDetails = null;
+      if (personData) {
+        const { data: mDetails, error: mError } = await supabase
+          .from('musician_details')
+          .select('*')
+          .eq('id', personData.id)
+          .maybeSingle();
+        
+        if (mError) {
+          console.warn('Error fetching musician details:', mError);
+        }
+        musicianDetails = mDetails;
+      }
+
+      const isMusicianVal = !!musicianDetails;
+      setIsMusician(isMusicianVal);
+      setIsSoloAct(personData?.is_solo_act || false);
+
       if (profileError) {
         if (profileError.code === 'PGRST116') {
-          
           // Use data from people table if available to seed the new profile
           const initialData = {
             id: userId,
@@ -204,7 +240,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             first_name: personData?.first_name || '',
             last_name: personData?.last_name || '',
             phone: personData?.phone || '',
-            roles: personData?.roles || ['guest']
+            is_super_admin: personData?.is_super_admin || false
           };
 
           const { data: newData, error: insertError } = await supabase
@@ -217,7 +253,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error('Error creating profile:', insertError);
             setProfile(null);
           } else {
-            setProfile(newData);
+            setProfile({
+              ...newData,
+              is_musician: isMusicianVal,
+              is_solo_act: personData?.is_solo_act || false
+            });
           }
         } else {
           console.error('Error fetching profile:', profileError);
@@ -225,7 +265,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } else {
         // We have a profile, but maybe it's missing info that the people table has
-        const mergedProfile = { ...profileData };
+        const mergedProfile = { 
+          ...profileData,
+          is_musician: isMusicianVal,
+          is_solo_act: personData?.is_solo_act || false
+        };
         let needsUpdate = false;
 
         if (personData) {
@@ -241,69 +285,64 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             mergedProfile.phone = personData.phone;
             needsUpdate = true;
           }
-          // Merge roles
-          const combinedRoles = Array.from(new Set([...(mergedProfile.roles || []), ...(personData.roles || [])]));
-          if (JSON.stringify(combinedRoles.sort()) !== JSON.stringify((mergedProfile.roles || []).sort())) {
-            mergedProfile.roles = combinedRoles;
+          if (mergedProfile.is_super_admin !== personData.is_super_admin) {
+            mergedProfile.is_super_admin = personData.is_super_admin;
             needsUpdate = true;
           }
         }
 
-        // Inject admin role for superuser
-        const updatedRoles = [...(mergedProfile.roles || [])];
-        if (userEmail === 'rickheavern@gmail.com' && !updatedRoles.includes('admin')) {
-          updatedRoles.push('admin');
+        // Inject super_admin for superuser email
+        if (userEmail === 'rickheavern@gmail.com' && !mergedProfile.is_super_admin) {
+          mergedProfile.is_super_admin = true;
           needsUpdate = true;
         }
-        
-        // Default to guest if no roles
-        if (updatedRoles.length === 0) {
-          updatedRoles.push('guest');
-          needsUpdate = true;
-        }
-
-        mergedProfile.roles = updatedRoles;
 
         if (needsUpdate) {
           await supabase.from('profiles').update({
             first_name: mergedProfile.first_name,
             last_name: mergedProfile.last_name,
             phone: mergedProfile.phone,
-            roles: mergedProfile.roles,
+            is_super_admin: mergedProfile.is_super_admin,
             default_role: mergedProfile.default_role
           }).eq('id', userId);
         }
         
         setProfile(mergedProfile);
+        setPersonId(personData?.id || null);
         
-        // Set active role
-        const savedRole = localStorage.getItem('active_role') as UserRole;
-        
-        // Define role priority (higher index = higher priority)
-        const rolePriority: UserRole[] = ['guest', 'musician', 'band_manager', 'venue_manager', 'syndication_manager', 'admin'];
-        
-        if (savedRole && mergedProfile.roles.includes(savedRole)) {
-          setActiveRoleState(savedRole);
-        } else if (mergedProfile.default_role && mergedProfile.roles.includes(mergedProfile.default_role)) {
-          setActiveRoleState(mergedProfile.default_role);
-        } else if (mergedProfile.roles.length > 0) {
-          // Sort roles by priority and pick the highest
-          const sortedRoles = [...mergedProfile.roles].sort((a, b) => {
-            return rolePriority.indexOf(b) - rolePriority.indexOf(a);
-          });
-          setActiveRoleState(sortedRoles[0]);
-        }
-
-        console.log('Profile successfully set in state:', mergedProfile);
+        // Determine available roles for this session
+        const currentAvailableRoles: UserRole[] = ['registered_guest'];
+        if (mergedProfile.is_super_admin) currentAvailableRoles.push('super_admin');
+        // Note: managedBands and managedVenues are fetched in a separate useEffect, 
+        // but we can check them here if they are already loaded or wait for them.
+        // For the initial active role selection, we might need to wait for the managed records.
       }
     } catch (error) {
       console.error('Error in fetchProfile:', error);
-      // Ensure profile is null if we failed to fetch/create it
       setProfile(null);
     } finally {
       setLoading(false);
     }
   }
+
+  // Set active role based on available roles
+  useEffect(() => {
+    if (loading || !profile) return;
+
+    const savedRole = localStorage.getItem('active_role') as UserRole;
+    const rolePriority: UserRole[] = ['registered_guest', 'musician', 'band_manager', 'venue_manager', 'promoter', 'super_admin'];
+    
+    if (savedRole && availableRoles.includes(savedRole)) {
+      setActiveRoleState(savedRole);
+    } else if (profile.default_role && availableRoles.includes(profile.default_role)) {
+      setActiveRoleState(profile.default_role);
+    } else if (availableRoles.length > 0) {
+      const sortedRoles = [...availableRoles].sort((a, b) => {
+        return rolePriority.indexOf(b) - rolePriority.indexOf(a);
+      });
+      setActiveRoleState(sortedRoles[0]);
+    }
+  }, [profile, availableRoles, loading]);
 
   const refreshProfile = async () => {
     if (user) {
@@ -322,8 +361,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profile, 
       activeRole, 
       roleData,
+      personId,
       loading, 
       isSuperAdmin: profile?.is_super_admin || false,
+      isMusician,
+      isBandManager: managedBands.length > 0,
+      isVenueManager: managedVenues.length > 0,
+      isSoloAct,
+      availableRoles,
       managedBands,
       managedVenues,
       signOut, 

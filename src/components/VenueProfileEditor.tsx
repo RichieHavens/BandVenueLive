@@ -3,13 +3,13 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../AuthContext';
 import { useNavigationContext } from '../context/NavigationContext';
 import { Venue, AppEvent } from '../types';
-import { Save, Image as ImageIcon, Loader2, Plus, Trash2, MapPin, Calendar, Clock, Eye, Info, Phone, Share2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Save, Image as ImageIcon, Loader2, Plus, Trash2, MapPin, Calendar, Clock, Eye, Info, Phone, Share2, ChevronDown, ChevronUp, Shield } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Textarea } from './ui/Textarea';
 import { Card } from './ui/Card';
-import { US_STATES, CA_PROVINCES, AddressParts, formatAddress, parseAddress, validateZipForState } from '../lib/geo';
-import { formatDate, formatTimeString } from '../lib/utils';
+import { US_STATES, CA_PROVINCES, AddressParts, formatAddress, parseAddress, validatePostalCodeForState } from '../lib/geo';
+import { formatDate, formatTimeString, cleanWebsiteUrl } from '../lib/utils';
 import ImageUpload from './ImageUpload';
 import { formatPhoneNumber } from '../lib/phoneFormatter';
 import ProfilePreviewModal from './ProfilePreviewModal';
@@ -18,22 +18,22 @@ import { cn } from '../lib/utils';
 import { SearchableSelect } from './ui/SearchableSelect';
 
 export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChange, onSaveSuccess }: { venueId?: string, hideDropdown?: boolean, onDirtyChange?: (dirty: boolean) => void, onSaveSuccess?: () => void }) {
-  const { user, profile } = useAuth();
+  const { user, profile, personId, isSuperAdmin } = useAuth();
   const { addRecentRecord } = useNavigationContext();
   const [venues, setVenues] = useState<Venue[]>([]);
   const [selectedVenueId, setSelectedVenueId] = useState<string | null>(venueId || null);
   const [venue, setVenue] = useState<Partial<Venue>>({
     name: '',
     description: '',
-    address: '',
-    street: '',
+    address_line1: '',
+    address_line2: '',
     city: '',
     state: '',
-    zip: '',
+    postal_code: '',
     country: 'US',
     phone: '',
     email: '',
-    website: '',
+    website_url: '',
     linkedin_url: '',
     pinterest_url: '',
     youtube_url: '',
@@ -41,11 +41,13 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
     apple_music_url: '',
     spotify_url: '',
     facebook_url: '',
-    twitter_url: '',
-    food_description: '',
+    description_food: '',
     logo_url: '',
     hero_url: '',
-    images: []
+    images: [],
+    video_links: [],
+    is_confirmed: false,
+    is_published: false
   });
   const [initialVenue, setInitialVenue] = useState<Partial<Venue> | null>(null);
   const [futureEvents, setFutureEvents] = useState<AppEvent[]>([]);
@@ -66,7 +68,7 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
       venue.description !== initialVenue.description ||
       venue.phone !== initialVenue.phone ||
       venue.email !== initialVenue.email ||
-      venue.website !== initialVenue.website ||
+      venue.website_url !== initialVenue.website_url ||
       venue.linkedin_url !== initialVenue.linkedin_url ||
       venue.pinterest_url !== initialVenue.pinterest_url ||
       venue.youtube_url !== initialVenue.youtube_url ||
@@ -74,12 +76,16 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
       venue.apple_music_url !== initialVenue.apple_music_url ||
       venue.spotify_url !== initialVenue.spotify_url ||
       venue.facebook_url !== initialVenue.facebook_url ||
-      venue.twitter_url !== initialVenue.twitter_url ||
-      venue.food_description !== initialVenue.food_description ||
+      venue.description_food !== initialVenue.description_food ||
       venue.logo_url !== initialVenue.logo_url ||
       venue.hero_url !== initialVenue.hero_url ||
-      formatAddress(addressParts) !== (initialVenue.address || '') ||
-      JSON.stringify(venue.images) !== JSON.stringify(initialVenue.images);
+      addressParts.address_line1 !== (initialVenue.address_line1 || '') ||
+      addressParts.address_line2 !== (initialVenue.address_line2 || '') ||
+      addressParts.city !== (initialVenue.city || '') ||
+      addressParts.state !== (initialVenue.state || '') ||
+      addressParts.postal_code !== (initialVenue.postal_code || '') ||
+      JSON.stringify(venue.images) !== JSON.stringify(initialVenue.images) ||
+      JSON.stringify(venue.video_links) !== JSON.stringify(initialVenue.video_links);
     
     onDirtyChange?.(isDirty);
   }, [venue, addressParts, initialVenue, onDirtyChange]);
@@ -96,14 +102,20 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
 
   async function fetchVenues() {
     try {
+      // 1. Get the person record for this user if it exists
+      const { data: personData } = await supabase
+        .from('people')
+        .select('id')
+        .eq('user_id', user?.id)
+        .maybeSingle();
+
       if (venueId === 'new') {
         const defaultVenue = {
           name: '',
           description: '',
-          address: '',
           phone: '',
           email: '',
-          website: '',
+          website_url: '',
           linkedin_url: '',
           pinterest_url: '',
           youtube_url: '',
@@ -111,11 +123,13 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
           apple_music_url: '',
           spotify_url: '',
           facebook_url: '',
-          twitter_url: '',
-          food_description: '',
+          description_food: '',
           logo_url: '',
           hero_url: '',
-          images: []
+          images: [],
+          video_links: [],
+          is_confirmed: false,
+          is_published: false
         };
         setVenue(defaultVenue);
         setInitialVenue(defaultVenue);
@@ -129,8 +143,10 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
       
       if (venueId) {
         query = query.eq('id', venueId);
+      } else if (personData) {
+        query = query.or(`manager_id.eq.${user?.id},manager_id.eq.${personData.id}`);
       } else {
-        query = query.eq('manager_id', user?.id);
+        query = query.or(`manager_id.eq.${user?.id}`);
       }
       
       const { data, error } = await query.order('name');
@@ -149,10 +165,9 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
         const defaultVenue = {
           name: '',
           description: '',
-          address: '',
           phone: '',
           email: '',
-          website: '',
+          website_url: '',
           linkedin_url: '',
           pinterest_url: '',
           youtube_url: '',
@@ -160,11 +175,13 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
           apple_music_url: '',
           spotify_url: '',
           facebook_url: '',
-          twitter_url: '',
-          food_description: '',
+          description_food: '',
           logo_url: '',
           hero_url: '',
-          images: []
+          images: [],
+          video_links: [],
+          is_confirmed: false,
+          is_published: false
         };
         setVenue(defaultVenue);
         setInitialVenue(defaultVenue);
@@ -184,14 +201,15 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
       const defaultVenue = {
         name: '',
         description: '',
-        street: '',
+        address_line1: '',
+        address_line2: '',
         city: '',
         state: '',
-        zip: '',
+        postal_code: '',
         country: 'US',
         phone: '',
         email: '',
-        website: '',
+        website_url: '',
         linkedin_url: '',
         pinterest_url: '',
         youtube_url: '',
@@ -199,12 +217,12 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
         apple_music_url: '',
         spotify_url: '',
         facebook_url: '',
-        twitter_url: '',
-        food_description: '',
+        description_food: '',
         tech_specs: '',
         logo_url: '',
         hero_url: '',
-        images: []
+        images: [],
+        video_links: []
       };
 
       if (data) {
@@ -213,10 +231,12 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
           ...data,
           phone: data.phone || profile?.phone || '',
           email: data.email || profile?.email || '',
-          website: cleanWebsite(data.website || ''),
+          website_url: data.website_url ? data.website_url.replace(/^(https?:\/\/)?(www\.)?/, '') : '',
           logo_url: data.logo_url || '',
           hero_url: data.hero_url || '',
-          images: data.images || []
+          images: data.images || [],
+          video_links: data.video_links || [],
+          description_food: data.description_food || ''
         };
         setVenue(cleanedData);
         setInitialVenue(cleanedData);
@@ -227,10 +247,11 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
           timestamp: Date.now()
         });
         setAddressParts({
-          street: data.street || '',
+          address_line1: data.address_line1 || '',
+          address_line2: data.address_line2 || '',
           city: data.city || '',
           state: data.state || '',
-          zip: data.zip || '',
+          postal_code: data.postal_code || '',
           country: data.country || 'US'
         });
         fetchFutureEvents(data.id);
@@ -247,7 +268,7 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
 
     const { data } = await supabase
       .from('events')
-      .select('*, acts(*, bands(name))')
+      .select('*, acts(*, bands:bands_ordered(name))')
       .eq('venue_id', venueId);
     
     if (data) {
@@ -270,14 +291,10 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
     return digits.length >= 10;
   };
 
-  const cleanWebsite = (url: string) => {
-    if (!url) return '';
-    return url.replace(/^(https?:\/\/)?(www\.)?/, '');
-  };
-
   async function logUpdate(venueId: string, changes: any) {
     await supabase.from('audit_logs').insert({
       user_id: user?.id,
+      created_by_id: personId,
       table_name: 'venues',
       record_id: venueId,
       changes: changes
@@ -295,7 +312,7 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
       return;
     }
 
-    const zipValidation = validateZipForState(addressParts.zip, addressParts.state, addressParts.country);
+    const zipValidation = validatePostalCodeForState(addressParts.postal_code, addressParts.state, addressParts.country);
     if (!zipValidation.isValid) {
       setMessage({ type: 'error', text: zipValidation.message || 'Invalid Zip/Postal Code for the selected state/province.' });
       setSaving(false);
@@ -303,7 +320,8 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
     }
 
     try {
-      const finalWebsite = venue.website ? `https://${cleanWebsite(venue.website)}` : '';
+      const finalWebsite = cleanWebsiteUrl(venue.website_url);
+      const isNew = !selectedVenueId || selectedVenueId === 'new';
       
       // Sanitize venue data to remove joined data that doesn't belong in the venues table
       const { 
@@ -320,23 +338,30 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
           changes[key] = cleanVenue[key];
         }
       });
-      ['street', 'city', 'state', 'zip', 'country'].forEach(key => {
+      ['address_line1', 'address_line2', 'city', 'state', 'postal_code', 'country'].forEach(key => {
         if (addressParts[key as keyof typeof addressParts] !== (initialVenue as any)[key]) {
           changes[key] = addressParts[key as keyof typeof addressParts];
         }
       });
+
+      // 1. Get the person record for this user if it exists
+      const { data: personData } = await supabase
+        .from('people')
+        .select('id')
+        .eq('user_id', user?.id)
+        .maybeSingle();
 
       const { error, data } = await supabase
         .from('venues')
         .upsert({
           ...cleanVenue,
           ...addressParts,
-          address: formatAddress(addressParts),
           id: selectedVenueId || undefined,
-          website: finalWebsite,
+          website_url: finalWebsite,
           manager_id: venue.manager_id || null, // Preserve existing manager or leave null
           updated_at: new Date().toISOString(),
-          updated_by: user?.id
+          updated_by_id: personData?.id,
+          ...(isNew ? { created_by_id: personData?.id } : {})
         })
         .select()
         .single();
@@ -350,7 +375,7 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
       }
 
       setMessage({ type: 'success', text: 'Venue profile updated successfully!' });
-      const updatedVenue = { ...venue, id: data.id, website: cleanWebsite(finalWebsite), address: formatAddress(addressParts) };
+      const updatedVenue = { ...venue, id: data.id, website_url: finalWebsite ? finalWebsite.replace(/^(https?:\/\/)?(www\.)?/, '') : '' };
       setVenue(updatedVenue);
       setInitialVenue(updatedVenue);
       setSelectedVenueId(data.id);
@@ -435,6 +460,57 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
 
       <form onSubmit={handleSave} className="space-y-4 max-w-3xl mx-auto">
         
+        {/* Super Admin Controls */}
+        {isSuperAdmin && (
+          <div className="bg-blue-500/5 border border-blue-500/20 rounded-2xl p-6 space-y-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Shield className="text-blue-500" size={18} />
+              <h3 className="text-sm font-bold text-blue-500 uppercase tracking-widest">Super Admin Controls</h3>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="flex items-center justify-between p-4 bg-neutral-900/50 rounded-xl border border-neutral-800">
+                <div className="space-y-0.5">
+                  <label className="text-sm font-bold text-white">Confirmed</label>
+                  <p className="text-xs text-neutral-500">Venue is verified and confirmed</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setVenue({ ...venue, is_confirmed: !venue.is_confirmed })}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                    venue.is_confirmed ? 'bg-blue-600' : 'bg-neutral-700'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      venue.is_confirmed ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between p-4 bg-neutral-900/50 rounded-xl border border-neutral-800">
+                <div className="space-y-0.5">
+                  <label className="text-sm font-bold text-white">Published</label>
+                  <p className="text-xs text-neutral-500">Venue is visible to the public</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setVenue({ ...venue, is_published: !venue.is_published })}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                    venue.is_published ? 'bg-green-600' : 'bg-neutral-700'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      venue.is_published ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
         {/* Basic Info Section */}
         <div className="space-y-4">
           <SectionHeader id="basic" title="Basic Info" icon={Info} />
@@ -473,8 +549,8 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
                 <label className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Food Description</label>
                 <Textarea
                   rows={2}
-                  value={venue.food_description || ''}
-                  onChange={(e) => setVenue({ ...venue, food_description: e.target.value })}
+                  value={venue.description_food || ''}
+                  onChange={(e) => setVenue({ ...venue, description_food: e.target.value })}
                   placeholder="What kind of food do you serve?"
                 />
               </div>
@@ -521,23 +597,30 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="sm:col-span-2 space-y-2">
-                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">Street Address</label>
-                    <div className="relative">
-                      <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={18} />
-                      <Input
-                        type="text"
-                        value={addressParts.street || ''}
-                        onChange={(e) => setAddressParts({ ...addressParts, street: e.target.value })}
-                        className="pl-12"
-                        placeholder="123 Music Ave"
-                      />
-                    </div>
+                  <div className="space-y-2">
+                    <Input
+                      label="Street Address"
+                      type="text"
+                      icon={<MapPin size={18} className="text-neutral-400" />}
+                      value={addressParts.address_line1 || ''}
+                      onChange={(e) => setAddressParts({ ...addressParts, address_line1: e.target.value })}
+                      placeholder="123 Music Ave"
+                    />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">City</label>
                     <Input
+                      label="Apt, Suite, etc. (Optional)"
+                      type="text"
+                      value={addressParts.address_line2 || ''}
+                      onChange={(e) => setAddressParts({ ...addressParts, address_line2: e.target.value })}
+                      placeholder="Suite 100"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Input
+                      label="City"
                       type="text"
                       value={addressParts.city || ''}
                       onChange={(e) => setAddressParts({ ...addressParts, city: e.target.value })}
@@ -555,13 +638,11 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
                     />
 
                     <div className="space-y-2">
-                      <label className="text-[10px] font-bold text-neutral-600 uppercase tracking-wider">
-                        {addressParts.country === 'US' ? 'Zip Code' : 'Postal Code'}
-                      </label>
                       <Input
+                        label={addressParts.country === 'US' ? 'Zip Code' : 'Postal Code'}
                         type="text"
-                        value={addressParts.zip || ''}
-                        onChange={(e) => setAddressParts({ ...addressParts, zip: e.target.value })}
+                        value={addressParts.postal_code || ''}
+                        onChange={(e) => setAddressParts({ ...addressParts, postal_code: e.target.value })}
                         placeholder={addressParts.country === 'US' ? '37201' : 'M5V 2T6'}
                       />
                     </div>
@@ -601,8 +682,8 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
                     </div>
                     <input
                       type="text"
-                      value={venue.website || ''}
-                      onChange={(e) => setVenue({ ...venue, website: e.target.value })}
+                      value={venue.website_url || ''}
+                      onChange={(e) => setVenue({ ...venue, website_url: e.target.value })}
                       placeholder="www.venue.com"
                       className="w-full bg-neutral-800 border border-neutral-700 rounded-xl py-3 pl-[4.5rem] pr-4 text-white focus:ring-2 focus:ring-blue-600 outline-none transition-all"
                     />
@@ -743,7 +824,7 @@ export default function VenueProfileEditor({ venueId, hideDropdown, onDirtyChang
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input label="Instagram URL" type="url" value={venue.instagram_url || ''} onChange={(e) => setVenue({ ...venue, instagram_url: e.target.value })} placeholder="https://instagram.com/..." />
                 <Input label="Facebook URL" type="url" value={venue.facebook_url || ''} onChange={(e) => setVenue({ ...venue, facebook_url: e.target.value })} placeholder="https://facebook.com/..." />
-                <Input label="Twitter (X) URL" type="url" value={venue.twitter_url || ''} onChange={(e) => setVenue({ ...venue, twitter_url: e.target.value })} placeholder="https://twitter.com/..." />
+                <Input label="Twitter (X) URL" type="url" value={venue.twitter_url || ''} onChange={(e) => setVenue({ ...venue, twitter_url: e.target.value, x_url: e.target.value })} placeholder="https://twitter.com/..." />
                 <Input label="YouTube Channel URL" type="url" value={venue.youtube_url || ''} onChange={(e) => setVenue({ ...venue, youtube_url: e.target.value })} placeholder="https://youtube.com/..." />
                 <Input label="Spotify URL" type="url" value={venue.spotify_url || ''} onChange={(e) => setVenue({ ...venue, spotify_url: e.target.value })} placeholder="https://open.spotify.com/..." />
                 <Input label="Apple Music URL" type="url" value={venue.apple_music_url || ''} onChange={(e) => setVenue({ ...venue, apple_music_url: e.target.value })} placeholder="https://music.apple.com/..." />

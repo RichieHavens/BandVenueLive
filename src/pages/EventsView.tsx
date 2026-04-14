@@ -59,7 +59,7 @@ export function EventsView() {
     try {
       const { data } = await supabase
         .from('events')
-        .select('*, venues(name, address), acts(*, bands(name)), event_genres(genres(name))')
+        .select('*, venues(name, address), acts(*, bands:bands_ordered(name)), event_genres(genres(name))')
         .eq('is_published', true);
       
       if (data) {
@@ -157,6 +157,21 @@ export function EventsView() {
       </section>
 
       <RolePersonalizedHeader pageId="events" />
+
+      {!user && (
+        <div className="p-6 bg-red-600/10 border border-red-600/20 rounded-3xl flex flex-col md:flex-row items-center justify-between gap-4 animate-in fade-in slide-in-from-top-4">
+          <div className="space-y-1 text-center md:text-left">
+            <h3 className="font-bold text-white">Welcome, Guest!</h3>
+            <p className="text-sm text-neutral-400">Sign in to save your favorite bands, venues, and events.</p>
+          </div>
+          <Button 
+            onClick={() => window.location.href = '/login'}
+            className="bg-red-600 hover:bg-red-700 text-white px-8"
+          >
+            Sign In
+          </Button>
+        </div>
+      )}
 
       {/* Filter Bar */}
       <div className="sticky top-0 z-30 bg-neutral-950/90 backdrop-blur-xl -mx-4 px-4 py-3 border-b border-neutral-800 shadow-sm">
@@ -337,15 +352,31 @@ export function EventsView() {
             </div>
             
             <div className="flex items-center gap-4">
-              <Button
-                variant={showFavorites ? 'primary' : 'secondary'}
-                onClick={() => setShowFavorites(!showFavorites)}
-                size="sm"
-                className="flex items-center gap-2"
-              >
-                <Star size={14} fill={showFavorites ? 'currentColor' : 'none'} />
-                <span>Favorites</span>
-              </Button>
+              <div className="flex p-1 bg-neutral-900 border border-neutral-800 rounded-xl">
+                <button
+                  onClick={() => setShowFavorites(false)}
+                  className={cn(
+                    "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                    !showFavorites 
+                      ? "bg-neutral-800 text-white shadow-sm" 
+                      : "text-neutral-500 hover:text-neutral-300"
+                  )}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setShowFavorites(true)}
+                  className={cn(
+                    "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2",
+                    showFavorites 
+                      ? "bg-blue-600 text-white shadow-sm" 
+                      : "text-neutral-500 hover:text-neutral-300"
+                  )}
+                >
+                  <Star size={12} fill={showFavorites ? 'currentColor' : 'none'} />
+                  Favorites
+                </button>
+              </div>
               <p className="text-neutral-500 text-[10px] font-black uppercase tracking-widest hidden lg:block">{filteredEvents.length} Events</p>
             </div>
           </div>
@@ -387,7 +418,11 @@ export function EventsView() {
       {loading ? (
         <div className="flex justify-center py-20"><Loader2 className="animate-spin text-blue-600" size={48} /></div>
       ) : filteredEvents.length === 0 ? (
-        <div className="text-center py-20 text-neutral-400">No events found for the selected filters.</div>
+        <div className="text-center py-20">
+          <p className="text-neutral-500 text-sm font-medium">
+            {showFavorites ? "No favorites yet." : "No events found."}
+          </p>
+        </div>
       ) : (
         <div className="space-y-6 md:space-y-10">
           {Object.entries(groupedEvents).map(([date, dateEvents]: [string, any]) => (

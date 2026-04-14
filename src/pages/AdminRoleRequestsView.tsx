@@ -2,7 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Loader2, Check, X } from 'lucide-react';
 
+import { useAuth } from '../AuthContext';
+
 export function AdminRoleRequestsView() {
+  const { personId } = useAuth();
   const [requests, setRequests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -26,7 +29,11 @@ export function AdminRoleRequestsView() {
     // 1. Update request status
     const { error: reqError } = await supabase
       .from('role_requests')
-      .update({ status: action })
+      .update({ 
+        status: action,
+        updated_at: new Date().toISOString(),
+        updated_by_id: personId
+      })
       .eq('id', id);
     
     if (reqError) {
@@ -45,12 +52,20 @@ export function AdminRoleRequestsView() {
       if (profile && !profile.roles.includes(role)) {
         await supabase
           .from('profiles')
-          .update({ roles: [...profile.roles, role] })
+          .update({ 
+            roles: [...profile.roles, role],
+            updated_at: new Date().toISOString(),
+            updated_by_id: personId
+          })
           .eq('id', userId);
         
         await supabase
           .from('people')
-          .update({ roles: [...profile.roles, role] })
+          .update({ 
+            roles: [...profile.roles, role],
+            updated_at: new Date().toISOString(),
+            updated_by_id: personId
+          })
           .eq('user_id', userId);
       }
     }

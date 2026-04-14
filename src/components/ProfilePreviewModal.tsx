@@ -128,7 +128,7 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
       
       let query = supabase
         .from('events')
-        .select('*, venues(name, address), acts(*, bands(name))')
+        .select('*, venues(name, address), acts(*, bands:bands_ordered(name))')
         .eq('is_published', true);
 
       if (type === 'venue') {
@@ -412,13 +412,13 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                         </a>
                       </div>
                     )}
-                    {currentData.website && (
+                    {currentData.website_url && (
                       <div className="flex items-center gap-3 text-neutral-300">
                         <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Globe size={14} />
                         </div>
                         <a 
-                          href={currentData.website} 
+                          href={currentData.website_url} 
                           target="_blank" 
                           rel="noopener noreferrer" 
                           className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-semibold rounded-xl transition-colors"
@@ -590,10 +590,15 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
               
               <div className="absolute bottom-6 left-6 right-6">
                 <h2 className="text-4xl font-bold text-white mb-2">{data.name || 'Band Name'}</h2>
-                {(data.city || data.state) && (
+                {(data.address_line1 || data.city || data.state) && (
                   <p className="text-neutral-300 flex items-center gap-2">
                     <MapPin size={16} className="text-red-500" /> 
-                    {[data.city, data.state].filter(Boolean).join(', ')}
+                    {[
+                      data.address_line1,
+                      data.address_line2,
+                      [data.city, data.state].filter(Boolean).join(', '),
+                      data.postal_code
+                    ].filter(Boolean).join(', ')}
                   </p>
                 )}
               </div>
@@ -636,13 +641,13 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                         </a>
                       </div>
                     )}
-                    {data.website && (
+                    {data.website_url && (
                       <div className="flex items-center gap-3 text-neutral-300">
                         <div className="w-8 h-8 rounded-full bg-neutral-800 flex items-center justify-center text-red-500 shrink-0">
                           <Globe size={14} />
                         </div>
                         <a 
-                          href={data.website} 
+                          href={data.website_url} 
                           target="_blank" 
                           rel="noopener noreferrer" 
                           className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white text-sm font-semibold rounded-xl transition-colors"
@@ -978,6 +983,21 @@ export default function ProfilePreviewModal({ isOpen, onClose, type, data }: Pro
                       </div>
                     </div>
                   </div>
+
+                  {data.musicianData.website_url && (
+                    <div className="space-y-3">
+                      <h4 className="text-sm font-bold text-neutral-400 uppercase tracking-widest">Website</h4>
+                      <a 
+                        href={data.musicianData.website_url} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="flex items-center gap-2 p-3 bg-neutral-800 rounded-xl hover:bg-neutral-700 transition-colors text-red-500 truncate text-sm"
+                      >
+                        <Globe size={16} className="shrink-0" />
+                        <span className="truncate">{data.musicianData.website_url}</span>
+                      </a>
+                    </div>
+                  )}
 
                   {data.musicianData.video_links && data.musicianData.video_links.length > 0 && (
                     <div className="space-y-3">

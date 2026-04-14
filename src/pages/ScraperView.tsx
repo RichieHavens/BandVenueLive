@@ -4,10 +4,13 @@ import { GoogleGenAI, Type } from "@google/genai";
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
 import { supabase } from '../lib/supabase';
-import { isSimilar, formatDate, formatTime } from '../lib/utils';
+import { formatAddress, AddressParts } from '../lib/geo';
+import { isSimilar, formatDate, formatTime, cleanWebsiteUrl } from '../lib/utils';
+import { Venue, Band, VenueEventProfile } from '../types';
 import { 
   Loader2, Sparkles, Upload, X, CheckCircle, Music, MapPin, 
-  Calendar, Clock, Search, Filter, Trash2, Globe, Settings, ShieldCheck, Plus
+  Calendar, Clock, Search, Filter, Trash2, Globe, Settings, ShieldCheck, Plus,
+  AlertTriangle, Info, HelpCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '../components/ui/Button';
@@ -15,8 +18,15 @@ import { Input } from '../components/ui/Input';
 import { Textarea } from '../components/ui/Textarea';
 import { Card } from '../components/ui/Card';
 
+interface ScrapeResults {
+  venues: (Partial<Venue> & { match?: string; matchId?: string; genres?: string[] })[];
+  bands: (Partial<Band> & { match?: string; matchId?: string; genres?: string[] })[];
+  events: (Partial<VenueEventProfile> & { venue_name?: string; band_names?: string[]; genres?: string[] })[];
+  genres: string[];
+}
+
 export function ScraperView() {
-  const { profile, user, refreshProfile } = useAuth();
+  const { profile, user, personId, refreshProfile } = useAuth();
   const [url, setUrl] = useState('');
   const [pastedText, setPastedText] = useState('');
   const [inputType, setInputType] = useState<'url' | 'text'>('url');
@@ -47,6 +57,13 @@ export function ScraperView() {
   const [selectedBandId, setSelectedBandId] = useState<string>('');
   const [venues, setVenues] = useState<any[]>([]);
   const [bands, setBands] = useState<any[]>([]);
+  const [headerMapping, setHeaderMapping] = useState<Record<string, string>>({});
+  const [unknownHeaders, setUnknownHeaders] = useState<string[]>([]);
+  const [mappingPreview, setMappingPreview] = useState<{ header: string; internalField: string; sampleValue: string }[]>([]);
+  const [duplicateHeaders, setDuplicateHeaders] = useState<string[]>([]);
+  const [aliasedHeaders, setAliasedHeaders] = useState<{ original: string; mapped: string }[]>([]);
+  const [missingRequiredHeaders, setMissingRequiredHeaders] = useState<string[]>([]);
+  const [showMappingPreview, setShowMappingPreview] = useState(false);
 
   const handleVenueChange = (venueId: string) => {
     setSelectedVenueId(venueId);
@@ -73,7 +90,7 @@ export function ScraperView() {
   useEffect(() => {
     const fetchContext = async () => {
       const { data: venues } = await supabase.from('venues').select('id, name').order('name');
-      const { data: bands } = await supabase.from('bands').select('id, name').order('name');
+      const { data: bands } = await supabase.from('bands_ordered').select('id, name').order('name');
       if (venues) setVenues(venues);
       if (bands) setBands(bands);
     };
@@ -126,7 +143,7 @@ export function ScraperView() {
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
-        extractedText = XLSX.utils.sheet_to_csv(worksheet);
+        extractedText = XLSX.utils.sheet_to_csv(worksheet, { FS: '|' });
       } else if (fileExtension === 'docx') {
         const arrayBuffer = await file.arrayBuffer();
         const result = await mammoth.extractRawText({ arrayBuffer });
@@ -169,8 +186,234 @@ export function ScraperView() {
     setImportSummary(null);
     setRawAIResponse(null);
     setShowRawResponse(false);
+    setShowMappingPreview(false);
+    setUnknownHeaders([]);
+    setDuplicateHeaders([]);
+    setAliasedHeaders([]);
+    setMissingRequiredHeaders([]);
     
     try {
+      // 1. Check for structured batch import format first
+      if (inputType === 'text') {
+        const lines = pastedText.split('\n').map(l => l.trim()).filter(l => l);
+        if (lines.length < 2) {
+          // Not enough lines for a structured import with header
+        } else {
+          const CANONICAL_HEADERS = [
+            'profile_type', 'name', 'address_line1', 'address_line2', 'city', 'state', 'postal_code', 'country',
+            'phone', 'email', 'website_url', 'facebook_url', 'instagram_url', 'x_url', 'twitter_url', 'tiktok_url',
+            'youtube_url', 'spotify_url', 'soundcloud_url', 'bandcamp_url', 'apple_music_url', 'description', 'genres'
+          ];
+
+          const HEADER_ALIASES: Record<string, string> = {
+            'street': 'address_line1',
+            'zip': 'postal_code',
+            'zip_code': 'postal_code',
+            'type': 'profile_type',
+            'twitter': 'twitter_url',
+            'facebook': 'facebook_url',
+            'instagram': 'instagram_url',
+            'tiktok': 'tiktok_url',
+            'youtube': 'youtube_url',
+            'spotify': 'spotify_url',
+            'soundcloud': 'soundcloud_url',
+            'bandcamp': 'bandcamp_url',
+            'apple_music': 'apple_music_url',
+            'itunes': 'apple_music_url',
+            'website': 'website_url',
+            'site': 'website_url',
+            'url': 'website_url',
+            'web': 'website_url'
+          };
+
+          const normalizeHeader = (header: string) => {
+            if (!header) return { normalized: '', isAliased: false };
+            const baseNormalized = header
+              .trim()
+              .toLowerCase()
+              .replace(/\s+/g, '_')
+              .replace(/[^a-z0-9_]/g, '');
+            
+            const aliased = HEADER_ALIASES[baseNormalized];
+            if (aliased) {
+              return { normalized: aliased, isAliased: true };
+            }
+            return { normalized: baseNormalized, isAliased: false };
+          };
+
+          // Detect delimiter (comma, tab, or pipe) from the first line
+          const firstLine = lines[0];
+          const counts = {
+            ',': (firstLine.match(/,/g) || []).length,
+            '\t': (firstLine.match(/\t/g) || []).length,
+            '|': (firstLine.match(/\|/g) || []).length
+          };
+          // Pick the delimiter that appears most frequently in the header row
+          const delimiter = (Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0]) || ',';
+          const rawHeaders = firstLine.split(delimiter).map(h => h.trim());
+          
+          // Normalize headers and check for duplicates/unknowns
+          const normalizedHeaders: string[] = [];
+          const seenHeaders = new Set<string>();
+          const duplicates: string[] = [];
+          const unknowns: string[] = [];
+          const aliases: { original: string; mapped: string }[] = [];
+          const mapping: Record<number, string> = {};
+          const preview: { header: string; internalField: string; sampleValue: string }[] = [];
+
+          rawHeaders.forEach((raw, index) => {
+            if (!raw) return;
+            const { normalized, isAliased } = normalizeHeader(raw);
+            
+            if (seenHeaders.has(normalized)) {
+              duplicates.push(raw);
+            }
+            seenHeaders.add(normalized);
+            normalizedHeaders.push(normalized);
+
+            if (isAliased) {
+              aliases.push({ original: raw, mapped: normalized });
+            }
+
+            if (CANONICAL_HEADERS.includes(normalized)) {
+              mapping[index] = normalized;
+              // Get sample value from first data row if available
+              const sampleValue = lines[1] ? lines[1].split(delimiter)[index] || '' : '';
+              preview.push({ header: raw, internalField: normalized, sampleValue });
+            } else {
+              unknowns.push(raw);
+              preview.push({ header: raw, internalField: 'Unknown column', sampleValue: '' });
+            }
+          });
+
+          // Check for required headers
+          const missingRequired = ['profile_type', 'name'].filter(h => !seenHeaders.has(h));
+
+          // If we have at least some recognized headers, treat as structured attempt
+          const hasRecognizedHeaders = normalizedHeaders.some(h => CANONICAL_HEADERS.includes(h));
+          
+          if (hasRecognizedHeaders) {
+            setStatus('Processing structured batch import...');
+            setUnknownHeaders(unknowns);
+            setDuplicateHeaders(duplicates);
+            setAliasedHeaders(aliases);
+            setMissingRequiredHeaders(missingRequired);
+            setMappingPreview(preview);
+            setShowMappingPreview(true);
+
+            // Only proceed with data processing if required fields are present
+            if (missingRequired.length === 0) {
+              const structuredResults: ScrapeResults = { venues: [], bands: [], events: [], genres: [] };
+            
+            // Process data rows (skip header)
+            for (let i = 1; i < lines.length; i++) {
+              const rowParts = lines[i].split(delimiter).map(p => p.trim());
+              const record: any = {};
+              
+              // Map values based on header mapping
+              Object.entries(mapping).forEach(([indexStr, field]) => {
+                const index = parseInt(indexStr);
+                record[field] = rowParts[index] || '';
+              });
+
+              // Detect secondary header rows (duplicates of the first row)
+              const isHeaderRow = rowParts.every((part, idx) => part === rawHeaders[idx]);
+              if (isHeaderRow) {
+                setDuplicateHeaders(prev => [...prev, `Row ${i + 1} appears to be a duplicate header row`]);
+                continue;
+              }
+
+              const type = record.profile_type?.toLowerCase().trim();
+              if (type === 'venue') {
+                structuredResults.venues.push({
+                  ...record,
+                  twitter_url: record.x_url || record.twitter_url || '',
+                  x_url: record.x_url || record.twitter_url || '',
+                  apple_music_url: record.apple_music_url || '',
+                  email: (record.email || '').toLowerCase().trim(),
+                  website_url: cleanWebsiteUrl(record.website_url),
+                  genres: record.genres ? record.genres.split(';').map((g: any) => g.trim()) : []
+                });
+              } else if (type === 'band') {
+                structuredResults.bands.push({
+                  ...record,
+                  twitter_url: record.x_url || record.twitter_url || '',
+                  x_url: record.x_url || record.twitter_url || '',
+                  apple_music_url: record.apple_music_url || '',
+                  email: (record.email || '').toLowerCase().trim(),
+                  website_url: cleanWebsiteUrl(record.website_url),
+                  genres: record.genres ? record.genres.split(';').map((g: any) => g.trim()) : []
+                });
+              } else if (type === 'event') {
+                structuredResults.events.push({
+                  title: record.name || record.title || '',
+                  venue_name: record.venue_name || '',
+                  start_time: record.start_time || '',
+                  band_names: record.band_names ? record.band_names.split(';').map((b: any) => b.trim()) : [],
+                  description: record.description || '',
+                  genres: record.genres ? record.genres.split(';').map((g: any) => g.trim()) : []
+                });
+              }
+            }
+
+            // Fuzzy matching against existing database
+            const { data: existingVenues } = await supabase.from('venues').select('id, name, address_line1, city, state, postal_code, phone, website_url');
+            const { data: existingBands } = await supabase.from('bands_ordered').select('id, name, address_line1, city, state, postal_code, phone, website_url');
+
+            const findVenueMatch = (v: any) => {
+              return existingVenues?.find(ev => {
+                const nameMatch = isSimilar(ev.name, v.name);
+                if (!nameMatch) return false;
+                if (v.address_line1 && ev.address_line1 && isSimilar(ev.address_line1, v.address_line1)) return true;
+                if (v.phone && ev.phone && ev.phone.replace(/\D/g, '') === v.phone.replace(/\D/g, '')) return true;
+                if (v.website_url && ev.website_url) {
+                  const vWeb = v.website_url.toLowerCase().replace(/https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+                  const evWeb = ev.website_url.toLowerCase().replace(/https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+                  if (vWeb && evWeb && (vWeb.includes(evWeb) || evWeb.includes(vWeb))) return true;
+                }
+                return true;
+              });
+            };
+
+            const findBandMatch = (b: any) => {
+              return existingBands?.find(eb => {
+                const nameMatch = isSimilar(eb.name, b.name);
+                if (!nameMatch) return false;
+                if (b.address_line1 && eb.address_line1 && isSimilar(eb.address_line1, b.address_line1)) return true;
+                if (b.phone && eb.phone && eb.phone.replace(/\D/g, '') === b.phone.replace(/\D/g, '')) return true;
+                if (b.website_url && eb.website_url) {
+                  const bWeb = b.website_url.toLowerCase().replace(/https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+                  const ebWeb = eb.website_url.toLowerCase().replace(/https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+                  if (bWeb && ebWeb && (bWeb.includes(ebWeb) || ebWeb.includes(bWeb))) return true;
+                }
+                return true;
+              });
+            };
+
+            structuredResults.venues = structuredResults.venues.map(v => {
+              const match = findVenueMatch(v);
+              return match ? { ...v, match: match.name, matchId: match.id } : v;
+            });
+
+            structuredResults.bands = structuredResults.bands.map(b => {
+              const match = findBandMatch(b);
+              return match ? { ...b, match: match.name, matchId: match.id } : b;
+            });
+
+            setResults(structuredResults);
+            setStatus('Batch import processed successfully!');
+            setLoading(false);
+            return;
+          } else {
+            // Missing required fields - we show the mapping preview but don't process rows
+            setLoading(false);
+            return;
+          }
+        }
+      }
+    }
+
+      // 2. Fallback to AI scraping if not structured
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
       let response;
       let attempts = 0;
@@ -208,11 +451,24 @@ export function ScraperView() {
                         type: Type.OBJECT,
                         properties: {
                           name: { type: Type.STRING, description: "Name of the venue" },
-                          address: { type: Type.STRING, description: "Physical address" },
+                          address_line1: { type: Type.STRING, description: "Street address" },
+                          address_line2: { type: Type.STRING, description: "Suite, unit, etc." },
+                          city: { type: Type.STRING },
+                          state: { type: Type.STRING },
+                          postal_code: { type: Type.STRING },
+                          country: { type: Type.STRING },
                           description: { type: Type.STRING, description: "Short description (max 200 chars)" },
                           phone: { type: Type.STRING },
                           email: { type: Type.STRING },
-                          website: { type: Type.STRING, description: "Official website URL." },
+                          website_url: { type: Type.STRING, description: "Official website URL." },
+                          facebook_url: { type: Type.STRING },
+                          instagram_url: { type: Type.STRING },
+                          twitter_url: { type: Type.STRING },
+                          tiktok_url: { type: Type.STRING },
+                          youtube_url: { type: Type.STRING },
+                          spotify_url: { type: Type.STRING },
+                          soundcloud_url: { type: Type.STRING },
+                          bandcamp_url: { type: Type.STRING },
                           genres: { type: Type.ARRAY, items: { type: Type.STRING } },
                           images: { type: Type.ARRAY, items: { type: Type.STRING } }
                         },
@@ -226,7 +482,15 @@ export function ScraperView() {
                         properties: {
                           name: { type: Type.STRING, description: "Name of the band" },
                           description: { type: Type.STRING, description: "Short description (max 200 chars)" },
-                          website: { type: Type.STRING, description: "Official website URL." },
+                          website_url: { type: Type.STRING, description: "Official website URL." },
+                          facebook_url: { type: Type.STRING },
+                          instagram_url: { type: Type.STRING },
+                          twitter_url: { type: Type.STRING },
+                          tiktok_url: { type: Type.STRING },
+                          youtube_url: { type: Type.STRING },
+                          spotify_url: { type: Type.STRING },
+                          soundcloud_url: { type: Type.STRING },
+                          bandcamp_url: { type: Type.STRING },
                           phone: { type: Type.STRING },
                           email: { type: Type.STRING },
                           city: { type: Type.STRING, description: "City where the band is based" },
@@ -276,8 +540,8 @@ export function ScraperView() {
               4. ${scrapeBands ? 'Extract ALL bands.' : 'Do not extract any bands.'}
               5. The event 'title' should be the name of the specific show, performance, or headlining band.
               6. Return a JSON object with:
-                 - venues: ${scrapeVenues ? 'array of { name, address, description, phone, email, website, genres, images }' : 'empty array'}
-                 - bands: ${scrapeBands ? 'array of { name, description, website, phone, email, genres, images }' : 'empty array'}
+                 - venues: ${scrapeVenues ? 'array of { name, address_line1, address_line2, city, state, postal_code, country, description, phone, email, website_url, facebook_url, instagram_url, twitter_url, tiktok_url, youtube_url, spotify_url, soundcloud_url, bandcamp_url, genres, images }' : 'empty array'}
+                 - bands: ${scrapeBands ? 'array of { name, address_line1, address_line2, city, state, postal_code, country, description, phone, email, website_url, facebook_url, instagram_url, twitter_url, tiktok_url, youtube_url, spotify_url, soundcloud_url, bandcamp_url, genres, images }' : 'empty array'}
                  - events: ${scrapeEvents ? 'array of { title, description, start_time, venue_name, band_names, genres }' : 'empty array'}
                  - genres: array of strings`,
               config: {
@@ -293,11 +557,23 @@ export function ScraperView() {
                         type: Type.OBJECT,
                         properties: {
                           name: { type: Type.STRING },
-                          address: { type: Type.STRING },
+                          address_line1: { type: Type.STRING },
+                          city: { type: Type.STRING },
+                          state: { type: Type.STRING },
+                          postal_code: { type: Type.STRING },
+                          country: { type: Type.STRING },
                           description: { type: Type.STRING },
                           phone: { type: Type.STRING },
                           email: { type: Type.STRING },
-                          website: { type: Type.STRING },
+                          website_url: { type: Type.STRING },
+                          facebook_url: { type: Type.STRING },
+                          instagram_url: { type: Type.STRING },
+                          twitter_url: { type: Type.STRING },
+                          tiktok_url: { type: Type.STRING },
+                          youtube_url: { type: Type.STRING },
+                          spotify_url: { type: Type.STRING },
+                          soundcloud_url: { type: Type.STRING },
+                          bandcamp_url: { type: Type.STRING },
                           genres: { type: Type.ARRAY, items: { type: Type.STRING } },
                           images: { type: Type.ARRAY, items: { type: Type.STRING } }
                         },
@@ -311,7 +587,15 @@ export function ScraperView() {
                         properties: {
                           name: { type: Type.STRING },
                           description: { type: Type.STRING },
-                          website: { type: Type.STRING },
+                          website_url: { type: Type.STRING },
+                          facebook_url: { type: Type.STRING },
+                          instagram_url: { type: Type.STRING },
+                          twitter_url: { type: Type.STRING },
+                          tiktok_url: { type: Type.STRING },
+                          youtube_url: { type: Type.STRING },
+                          spotify_url: { type: Type.STRING },
+                          soundcloud_url: { type: Type.STRING },
+                          bandcamp_url: { type: Type.STRING },
                           phone: { type: Type.STRING },
                           email: { type: Type.STRING },
                           genres: { type: Type.ARRAY, items: { type: Type.STRING } },
@@ -538,16 +822,48 @@ export function ScraperView() {
         
         // Fuzzy matching against existing database to identify duplicates before import
         setStatus('Checking for existing records...');
-        const { data: existingVenues } = await supabase.from('venues').select('id, name');
-        const { data: existingBands } = await supabase.from('bands').select('id, name');
+        const { data: existingVenues } = await supabase.from('venues').select('id, name, address_line1, city, state, postal_code, phone, website_url');
+        const { data: existingBands } = await supabase.from('bands_ordered').select('id, name, address_line1, city, state, postal_code, phone, website_url');
+
+        const findVenueMatch = (v: any) => {
+          return existingVenues?.find(ev => {
+            const nameMatch = isSimilar(ev.name, v.name);
+            if (!nameMatch) return false;
+            
+            if (v.address_line1 && ev.address_line1 && isSimilar(ev.address_line1, v.address_line1)) return true;
+            if (v.phone && ev.phone && ev.phone.replace(/\D/g, '') === v.phone.replace(/\D/g, '')) return true;
+            if (v.website_url && ev.website_url) {
+              const vWeb = v.website_url.toLowerCase().replace(/https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+              const evWeb = ev.website_url.toLowerCase().replace(/https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+              if (vWeb && evWeb && (vWeb.includes(evWeb) || evWeb.includes(vWeb))) return true;
+            }
+            return true;
+          });
+        };
+
+        const findBandMatch = (b: any) => {
+          return existingBands?.find(eb => {
+            const nameMatch = isSimilar(eb.name, b.name);
+            if (!nameMatch) return false;
+            
+            if (b.address_line1 && eb.address_line1 && isSimilar(eb.address_line1, b.address_line1)) return true;
+            if (b.phone && eb.phone && eb.phone.replace(/\D/g, '') === b.phone.replace(/\D/g, '')) return true;
+            if (b.website_url && eb.website_url) {
+              const bWeb = b.website_url.toLowerCase().replace(/https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+              const ebWeb = eb.website_url.toLowerCase().replace(/https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+              if (bWeb && ebWeb && (bWeb.includes(ebWeb) || ebWeb.includes(bWeb))) return true;
+            }
+            return true;
+          });
+        };
 
         parsed.venues = parsed.venues.map((v: any) => {
-          const match = existingVenues?.find(ev => isSimilar(ev.name, v.name));
+          const match = findVenueMatch(v);
           return match ? { ...v, match: match.name, matchId: match.id } : v;
         });
 
         parsed.bands = parsed.bands.map((b: any) => {
-          const match = existingBands?.find(eb => isSimilar(eb.name, b.name));
+          const match = findBandMatch(b);
           return match ? { ...b, match: match.name, matchId: match.id } : b;
         });
 
@@ -598,8 +914,8 @@ export function ScraperView() {
       console.log('Starting import process for user:', user.id);
       
       // 1. Fetch existing data for fuzzy matching
-      const { data: existingVenues, error: evError } = await supabase.from('venues').select('id, name');
-      const { data: existingBands, error: ebError } = await supabase.from('bands').select('id, name');
+      const { data: existingVenues, error: evError } = await supabase.from('venues').select('id, name, address_line1, city, state, postal_code, phone, website_url');
+      const { data: existingBands, error: ebError } = await supabase.from('bands_ordered').select('id, name, address_line1, city, state, postal_code, phone, website_url');
       const { data: existingGenres, error: egError } = await supabase.from('genres').select('id, name');
       const { data: existingEvents, error: eeError } = await supabase.from('events').select('id, title, venue_id');
       
@@ -634,7 +950,12 @@ export function ScraperView() {
         }
 
         // Create new genre if not found
-        const { data, error } = await supabase.from('genres').insert({ name: genreName }).select().maybeSingle();
+        const { data, error } = await supabase.from('genres').insert({ 
+          name: genreName,
+          created_by_id: personId,
+          updated_at: new Date().toISOString(),
+          updated_by_id: personId
+        }).select().maybeSingle();
         if (data) {
           genreMap.set(normalized, data.id);
           if (!details.genres.find(g => g.name.toLowerCase() === normalized)) {
@@ -674,9 +995,23 @@ export function ScraperView() {
           // Check if already in map
           if (venueMap.has(vName)) continue;
 
-          // Check fuzzy match in existing
-          const match = existingVenues?.find(ev => isSimilar(ev.name, vName));
           const venueData = results.venues.find((v: any) => v.name?.trim() === vName) || { name: vName };
+
+          // Check fuzzy match in existing
+          const match = existingVenues?.find(ev => {
+            const nameMatch = isSimilar(ev.name, vName);
+            if (!nameMatch) return false;
+            
+            // If name matches, check other fields for confirmation if available
+            if (venueData.address_line1 && ev.address_line1 && isSimilar(ev.address_line1, venueData.address_line1)) return true;
+            if (venueData.phone && ev.phone && ev.phone.replace(/\D/g, '') === venueData.phone.replace(/\D/g, '')) return true;
+            if (venueData.website_url && ev.website_url) {
+              const vWeb = venueData.website_url.toLowerCase().replace(/https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+              const evWeb = ev.website_url.toLowerCase().replace(/https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+              if (vWeb && evWeb && (vWeb.includes(evWeb) || evWeb.includes(vWeb))) return true;
+            }
+            return true;
+          });
           
           if (match) {
             console.log('Fuzzy match found for venue:', vName, '->', match.name, match.id);
@@ -695,13 +1030,31 @@ export function ScraperView() {
           
           const venueToInsert = {
             name: vName,
-            address: venueData.address || '',
+            address_line1: venueData.address_line1 || '',
+            address_line2: venueData.address_line2 || '',
+            city: venueData.city || '',
+            state: venueData.state || '',
+            postal_code: venueData.postal_code || '',
+            country: venueData.country || 'US',
             description: venueData.description || '',
             phone: venueData.phone || '',
-            email: venueData.email || '',
-            website: venueData.website || '',
+            email: (venueData.email || '').toLowerCase().trim(),
+            website_url: cleanWebsiteUrl(venueData.website_url),
+            facebook_url: venueData.facebook_url || '',
+            instagram_url: venueData.instagram_url || '',
+            twitter_url: venueData.twitter_url || '',
+            x_url: venueData.x_url || '',
+            tiktok_url: venueData.tiktok_url || '',
+            youtube_url: venueData.youtube_url || '',
+            spotify_url: venueData.spotify_url || '',
+            apple_music_url: venueData.apple_music_url || '',
+            soundcloud_url: venueData.soundcloud_url || '',
+            bandcamp_url: venueData.bandcamp_url || '',
             images: Array.isArray(venueData.images) ? venueData.images : [],
-            manager_id: null
+            manager_id: null,
+            created_by_id: personId,
+            updated_at: new Date().toISOString(),
+            updated_by_id: personId
           };
 
           const { data, error } = await supabase.from('venues').insert(venueToInsert).select().maybeSingle();
@@ -717,7 +1070,13 @@ export function ScraperView() {
               for (const gName of venueData.genres) {
                 const genreId = await matchOrCreateGenre(gName);
                 if (genreId) {
-                  const { error: vgError } = await supabase.from('venue_genres').insert({ venue_id: data.id, genre_id: genreId });
+                  const { error: vgError } = await supabase.from('venue_genres').insert({ 
+                    venue_id: data.id, 
+                    genre_id: genreId,
+                    created_by_id: personId,
+                    updated_at: new Date().toISOString(),
+                    updated_by_id: personId
+                  });
                   if (vgError) console.error('Error linking venue to genre:', vName, gName, vgError);
                 }
               }
@@ -772,8 +1131,20 @@ export function ScraperView() {
 
           if (bandMap.has(bName)) continue;
 
-          const match = existingBands?.find(eb => isSimilar(eb.name, bName));
           const bandData = results.bands.find((b: any) => b.name?.trim() === bName) || { name: bName };
+
+          const match = existingBands?.find(eb => {
+            const nameMatch = isSimilar(eb.name, bName);
+            if (!nameMatch) return false;
+            
+            if (bandData.phone && eb.phone && eb.phone.replace(/\D/g, '') === bandData.phone.replace(/\D/g, '')) return true;
+            if (bandData.website_url && eb.website_url) {
+              const bWeb = bandData.website_url.toLowerCase().replace(/https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+              const ebWeb = eb.website_url.toLowerCase().replace(/https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+              if (bWeb && ebWeb && (bWeb.includes(ebWeb) || ebWeb.includes(bWeb))) return true;
+            }
+            return true;
+          });
           
           if (match) {
             console.log('Fuzzy match found for band:', bName, '->', match.name, match.id);
@@ -792,14 +1163,31 @@ export function ScraperView() {
           
           const bandToInsert = {
             name: bName,
-            description: bandData.description || '',
-            phone: bandData.phone || '',
-            email: bandData.email || '',
-            website: bandData.website || '',
+            address_line1: bandData.address_line1 || '',
+            address_line2: bandData.address_line2 || '',
             city: bandData.city || '',
             state: bandData.state || '',
+            postal_code: bandData.postal_code || '',
+            country: bandData.country || 'US',
+            description: bandData.description || '',
+            phone: bandData.phone || '',
+            email: (bandData.email || '').toLowerCase().trim(),
+            website_url: cleanWebsiteUrl(bandData.website_url),
+            facebook_url: bandData.facebook_url || '',
+            instagram_url: bandData.instagram_url || '',
+            twitter_url: bandData.twitter_url || '',
+            x_url: bandData.x_url || '',
+            tiktok_url: bandData.tiktok_url || '',
+            youtube_url: bandData.youtube_url || '',
+            spotify_url: bandData.spotify_url || '',
+            apple_music_url: bandData.apple_music_url || '',
+            soundcloud_url: bandData.soundcloud_url || '',
+            bandcamp_url: bandData.bandcamp_url || '',
             images: Array.isArray(bandData.images) ? bandData.images : [],
-            manager_id: null
+            manager_id: null,
+            created_by_id: personId,
+            updated_at: new Date().toISOString(),
+            updated_by_id: personId
           };
 
           const { data, error } = await supabase.from('bands').insert(bandToInsert).select().maybeSingle();
@@ -815,7 +1203,13 @@ export function ScraperView() {
               for (const gName of bandData.genres) {
                 const genreId = await matchOrCreateGenre(gName);
                 if (genreId) {
-                  const { error: bgError } = await supabase.from('band_genres').insert({ band_id: data.id, genre_id: genreId });
+                  const { error: bgError } = await supabase.from('band_genres').insert({ 
+                    band_id: data.id, 
+                    genre_id: genreId,
+                    created_by_id: personId,
+                    updated_at: new Date().toISOString(),
+                    updated_by_id: personId
+                  });
                   if (bgError) console.error('Error linking band to genre:', bName, gName, bgError);
                 }
               }
@@ -896,7 +1290,10 @@ export function ScraperView() {
             title: finalTitle,
             description: e.description || '',
             is_published: false,
-            is_public: true
+            is_public: true,
+            created_by_id: personId,
+            updated_at: new Date().toISOString(),
+            updated_by_id: personId
           };
 
           const { data: eventData, error: eventError } = await supabase.from('events').insert(eventToInsert).select().maybeSingle();
@@ -927,7 +1324,10 @@ export function ScraperView() {
                 await supabase.from('acts').insert({
                   event_id: eventData.id,
                   band_id: bandId,
-                  start_time: e.start_time || new Date().toISOString()
+                  start_time: e.start_time || new Date().toISOString(),
+                  created_by_id: personId,
+                  updated_at: new Date().toISOString(),
+                  updated_by_id: personId
                 });
               }
             }
@@ -1033,7 +1433,7 @@ export function ScraperView() {
       
       // 1. Fetch existing data for fuzzy matching
       const { data: existingVenues } = await supabase.from('venues').select('id, name');
-      const { data: existingBands } = await supabase.from('bands').select('id, name');
+      const { data: existingBands } = await supabase.from('bands_ordered').select('id, name');
       const { data: existingGenres } = await supabase.from('genres').select('id, name');
       
       const genreMap = new Map<string, string>();
@@ -1070,11 +1470,26 @@ export function ScraperView() {
 
         const venueToInsert = {
           name: vName,
-          address: item.address || '',
+          address_line1: item.address_line1 || '',
+          address_line2: item.address_line2 || '',
+          city: item.city || '',
+          state: item.state || '',
+          postal_code: item.postal_code || '',
+          country: item.country || 'US',
           description: item.description || '',
           phone: item.phone || '',
-          email: item.email || '',
-          website: item.website || '',
+          email: (item.email || '').toLowerCase().trim(),
+          website_url: cleanWebsiteUrl(item.website_url),
+          facebook_url: item.facebook_url || '',
+          instagram_url: item.instagram_url || '',
+          twitter_url: item.twitter_url || '',
+          x_url: item.x_url || '',
+          tiktok_url: item.tiktok_url || '',
+          youtube_url: item.youtube_url || '',
+          spotify_url: item.spotify_url || '',
+          apple_music_url: item.apple_music_url || '',
+          soundcloud_url: item.soundcloud_url || '',
+          bandcamp_url: item.bandcamp_url || '',
           images: Array.isArray(item.images) ? item.images : [],
           manager_id: null
         };
@@ -1118,12 +1533,26 @@ export function ScraperView() {
 
         const bandToInsert = {
           name: bName,
-          description: item.description || '',
-          phone: item.phone || '',
-          email: item.email || '',
-          website: item.website || '',
+          address_line1: item.address_line1 || '',
+          address_line2: item.address_line2 || '',
           city: item.city || '',
           state: item.state || '',
+          postal_code: item.postal_code || '',
+          country: item.country || 'US',
+          description: item.description || '',
+          phone: item.phone || '',
+          email: (item.email || '').toLowerCase().trim(),
+          website_url: cleanWebsiteUrl(item.website_url),
+          facebook_url: item.facebook_url || '',
+          instagram_url: item.instagram_url || '',
+          twitter_url: item.twitter_url || '',
+          x_url: item.x_url || '',
+          tiktok_url: item.tiktok_url || '',
+          youtube_url: item.youtube_url || '',
+          spotify_url: item.spotify_url || '',
+          apple_music_url: item.apple_music_url || '',
+          soundcloud_url: item.soundcloud_url || '',
+          bandcamp_url: item.bandcamp_url || '',
           images: Array.isArray(item.images) ? item.images : [],
           manager_id: null
         };
@@ -1276,11 +1705,24 @@ export function ScraperView() {
       if (type === 'venue') {
         const venueToInsert = {
           name: name,
-          address: originalData.address || '',
+          address_line1: originalData.address_line1 || '',
+          address_line2: originalData.address_line2 || '',
+          city: originalData.city || '',
+          state: originalData.state || '',
+          postal_code: originalData.postal_code || '',
+          country: originalData.country || 'US',
           description: originalData.description || '',
           phone: originalData.phone || '',
-          email: originalData.email || '',
-          website: originalData.website || '',
+          email: (originalData.email || '').toLowerCase().trim(),
+          website_url: cleanWebsiteUrl(originalData.website_url),
+          facebook_url: originalData.facebook_url || '',
+          instagram_url: originalData.instagram_url || '',
+          twitter_url: originalData.twitter_url || '',
+          tiktok_url: originalData.tiktok_url || '',
+          youtube_url: originalData.youtube_url || '',
+          spotify_url: originalData.spotify_url || '',
+          soundcloud_url: originalData.soundcloud_url || '',
+          bandcamp_url: originalData.bandcamp_url || '',
           images: Array.isArray(originalData.images) ? originalData.images : [],
           manager_id: null
         };
@@ -1305,10 +1747,24 @@ export function ScraperView() {
       } else {
         const bandToInsert = {
           name: name,
+          address_line1: originalData.address_line1 || '',
+          address_line2: originalData.address_line2 || '',
+          city: originalData.city || '',
+          state: originalData.state || '',
+          postal_code: originalData.postal_code || '',
+          country: originalData.country || 'US',
           description: originalData.description || '',
           phone: originalData.phone || '',
-          email: originalData.email || '',
-          website: originalData.website || '',
+          email: (originalData.email || '').toLowerCase().trim(),
+          website_url: cleanWebsiteUrl(originalData.website_url),
+          facebook_url: originalData.facebook_url || '',
+          instagram_url: originalData.instagram_url || '',
+          twitter_url: originalData.twitter_url || '',
+          tiktok_url: originalData.tiktok_url || '',
+          youtube_url: originalData.youtube_url || '',
+          spotify_url: originalData.spotify_url || '',
+          soundcloud_url: originalData.soundcloud_url || '',
+          bandcamp_url: originalData.bandcamp_url || '',
           images: Array.isArray(originalData.images) ? originalData.images : [],
           manager_id: null
         };
@@ -1443,7 +1899,12 @@ export function ScraperView() {
         ) : (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <p className="text-sm text-neutral-400">Paste text content or upload a document (.txt, .csv, .xlsx, .docx)</p>
+              <div className="space-y-1">
+                <p className="text-sm text-neutral-400">Paste text content (CSV, Tab, or Pipe delimited) or upload a document (.txt, .csv, .xlsx, .docx)</p>
+                <p className="text-[10px] text-neutral-500 italic">
+                  Structured format: type | name | field1 | field2... (e.g. venue | The Grove | 123 Main St | 555-1234)
+                </p>
+              </div>
               <Button 
                 variant="ghost"
                 onClick={() => fileInputRef.current?.click()}
@@ -1484,12 +1945,123 @@ export function ScraperView() {
           </div>
         )}
       </Card>
+      
+      {showMappingPreview && (
+        <Card className="p-8 space-y-6 mb-6 border-blue-600/50 bg-blue-600/5">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+              <Settings className="text-blue-500" size={20} />
+              Import Mapping Preview
+            </h3>
+            <Button variant="ghost" size="sm" onClick={() => setShowMappingPreview(false)}>
+              <X size={16} />
+            </Button>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-4">
+              <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Column Mapping</h4>
+              <div className="space-y-2 max-h-64 overflow-y-auto pr-2">
+                {mappingPreview.map((m, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 bg-neutral-950 rounded-xl border border-neutral-800">
+                    <div className="space-y-1">
+                      <p className="text-xs text-neutral-500">Header: <span className="text-white font-mono">{m.header}</span></p>
+                      <p className="text-xs text-neutral-500">Sample: <span className="text-neutral-400 italic">{m.sampleValue || '(empty)'}</span></p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${m.internalField === 'Unknown column' ? 'bg-neutral-800 text-neutral-500' : 'bg-blue-600/20 text-blue-400'}`}>
+                        {m.internalField}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <h4 className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Validation Status</h4>
+              <div className="space-y-3">
+                {missingRequiredHeaders.length > 0 && (
+                  <div className="p-4 bg-red-600/20 border border-red-600 rounded-xl">
+                    <p className="text-sm font-bold text-red-500 mb-1 flex items-center gap-2">
+                      <X size={18} /> Import Blocked: Missing Required Fields
+                    </p>
+                    <p className="text-xs text-red-400/80">The following columns are required but missing: {missingRequiredHeaders.join(', ')}</p>
+                  </div>
+                )}
+
+                {duplicateHeaders.length > 0 && (
+                  <div className="p-4 bg-yellow-600/20 border border-yellow-600 rounded-xl">
+                    <p className="text-sm font-bold text-yellow-500 mb-1 flex items-center gap-2">
+                      <AlertTriangle size={18} /> Warning: Duplicate Headers Detected
+                    </p>
+                    <p className="text-xs text-yellow-500/80 mb-2">Duplicate or repeated header rows were found and will be skipped:</p>
+                    <ul className="text-xs text-yellow-500/70 list-disc list-inside">
+                      {duplicateHeaders.map((h, i) => <li key={i}>{h}</li>)}
+                    </ul>
+                  </div>
+                )}
+
+                {aliasedHeaders.length > 0 && (
+                  <div className="p-4 bg-blue-600/20 border border-blue-600 rounded-xl">
+                    <p className="text-sm font-bold text-blue-400 mb-1 flex items-center gap-2">
+                      <Info size={18} /> Notice: Automatic Header Mapping
+                    </p>
+                    <p className="text-xs text-blue-400/80 mb-2">Some headers were automatically mapped to standard fields:</p>
+                    <div className="grid grid-cols-1 gap-1">
+                      {aliasedHeaders.map((a, i) => (
+                        <div key={i} className="text-[10px] flex items-center gap-2 text-blue-400/60">
+                          <span className="font-mono bg-blue-900/30 px-1 rounded">{a.original}</span>
+                          <span>→</span>
+                          <span className="font-mono bg-blue-900/30 px-1 rounded">{a.mapped}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {unknownHeaders.length > 0 && (
+                  <div className="p-4 bg-neutral-800 border border-neutral-600 rounded-xl">
+                    <p className="text-sm font-bold text-neutral-300 mb-1 flex items-center gap-2">
+                      <HelpCircle size={18} /> Warning: Unknown Columns
+                    </p>
+                    <p className="text-xs text-neutral-400 mb-2">These columns do not match our template and will be ignored:</p>
+                    <p className="text-[10px] text-neutral-500 font-mono bg-black/30 p-2 rounded">{unknownHeaders.join(', ')}</p>
+                  </div>
+                )}
+
+                {duplicateHeaders.length === 0 && unknownHeaders.length === 0 && missingRequiredHeaders.length === 0 && aliasedHeaders.length === 0 && (
+                  <div className="p-4 bg-green-600/20 border border-green-600 rounded-xl flex items-center gap-3">
+                    <CheckCircle className="text-green-500" size={24} />
+                    <div>
+                      <p className="text-sm font-bold text-green-500">Perfect Match!</p>
+                      <p className="text-xs text-green-600/80">All headers match the canonical template exactly.</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
+      )}
 
       {results && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h3 className="text-2xl font-bold text-white">Analysis Results</h3>
             <div className="flex gap-4">
+              <Button 
+                variant="ghost"
+                onClick={() => {
+                  setResults(null);
+                  setShowMappingPreview(false);
+                  setPastedText('');
+                }}
+                className="text-red-500 hover:text-red-400 hover:bg-red-500/10"
+              >
+                <Trash2 size={18} />
+                Clear Results
+              </Button>
               <Button 
                 variant="ghost"
                 onClick={() => setShowRawResponse(!showRawResponse)}
@@ -1529,10 +2101,19 @@ export function ScraperView() {
                           <ShieldCheck size={10} /> Matches: {v.match}
                         </p>
                       ) : (
-                        <p className="text-xs text-neutral-400 truncate max-w-[150px]">{v.address}</p>
+                        <p className="text-xs text-neutral-400 truncate max-w-[150px]">{v.address_line1}</p>
                       )}
                     </div>
                     <div className="flex items-center gap-2 transition-all">
+                      <Button 
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleImportSingle('venues', i)}
+                        className="text-green-500 hover:text-green-400 hover:bg-green-500/10"
+                        title="Quick Import"
+                      >
+                        <Plus size={14} />
+                      </Button>
                       <Button 
                         variant="secondary"
                         size="sm"
@@ -1541,9 +2122,23 @@ export function ScraperView() {
                           index: i, 
                           data: { 
                             ...v, 
-                            address: v.address || '', 
+                            address_line1: v.address_line1 || '',
+                            address_line2: v.address_line2 || '',
+                            city: v.city || '',
+                            state: v.state || '',
+                            postal_code: v.postal_code || '',
+                            country: v.country || 'US',
                             phone: v.phone || '', 
-                            email: v.email || '' 
+                            email: v.email || '',
+                            website_url: v.website_url || '',
+                            facebook_url: v.facebook_url || '',
+                            instagram_url: v.instagram_url || '',
+                            twitter_url: v.twitter_url || '',
+                            tiktok_url: v.tiktok_url || '',
+                            youtube_url: v.youtube_url || '',
+                            spotify_url: v.spotify_url || '',
+                            soundcloud_url: v.soundcloud_url || '',
+                            bandcamp_url: v.bandcamp_url || ''
                           } 
                         })}
                         title={v.match ? "Compare with existing record" : "Edit record"}
@@ -1584,9 +2179,41 @@ export function ScraperView() {
                     </div>
                     <div className="flex items-center gap-2 transition-all">
                       <Button 
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleImportSingle('bands', i)}
+                        className="text-green-500 hover:text-green-400 hover:bg-green-500/10"
+                        title="Quick Import"
+                      >
+                        <Plus size={14} />
+                      </Button>
+                      <Button 
                         variant="secondary"
                         size="sm"
-                        onClick={() => setEditingRecord({ type: 'bands', index: i, data: b })}
+                        onClick={() => setEditingRecord({ 
+                          type: 'bands', 
+                          index: i, 
+                          data: {
+                            ...b,
+                            address_line1: b.address_line1 || '',
+                            address_line2: b.address_line2 || '',
+                            city: b.city || '',
+                            state: b.state || '',
+                            postal_code: b.postal_code || '',
+                            country: b.country || 'US',
+                            phone: b.phone || '',
+                            email: b.email || '',
+                            website_url: b.website_url || '',
+                            facebook_url: b.facebook_url || '',
+                            instagram_url: b.instagram_url || '',
+                            twitter_url: b.twitter_url || '',
+                            tiktok_url: b.tiktok_url || '',
+                            youtube_url: b.youtube_url || '',
+                            spotify_url: b.spotify_url || '',
+                            soundcloud_url: b.soundcloud_url || '',
+                            bandcamp_url: b.bandcamp_url || ''
+                          }
+                        })}
                         title={b.match ? "Compare with existing record" : "Edit record"}
                       >
                         <Settings size={14} />
@@ -1620,6 +2247,15 @@ export function ScraperView() {
                       </p>
                     </div>
                     <div className="flex items-center gap-2 transition-all">
+                      <Button 
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleImportSingle('events', i)}
+                        className="text-green-500 hover:text-green-400 hover:bg-green-500/10"
+                        title="Quick Import"
+                      >
+                        <Plus size={14} />
+                      </Button>
                       <Button 
                         variant="secondary"
                         size="sm"
@@ -1797,66 +2433,9 @@ export function ScraperView() {
 
                   <Card className="bg-neutral-900 border-neutral-800 p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {Object.entries(editingRecord.data).map(([key, value]) => {
-                        if (key === 'match' || key === 'matchId' || key === 'match_id') return null;
+                        {Object.entries(editingRecord.data).map(([key, value]) => {
+                          if (key === 'match' || key === 'matchId' || key === 'match_id' || key === 'id' || key === 'address' || key === 'street' || key === 'zip') return null;
                         
-                        // Special handling for address in venues to split into components
-                        if (editingRecord.type === 'venues' && key === 'address') {
-                          const addr = value as string || '';
-                          const parts = addr.split(', ');
-                          const street = parts[0] || '';
-                          const city = parts[1] || '';
-                          const stateZip = parts[2] || '';
-                          const [state, zip] = stateZip.split(' ') || ['', ''];
-
-                          return (
-                            <React.Fragment key={key}>
-                              <div className="md:col-span-2">
-                                <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">Street Address</label>
-                                <Input 
-                                  value={street}
-                                  onChange={(e) => {
-                                    const newAddr = `${e.target.value}, ${city}, ${state} ${zip}`;
-                                    setEditingRecord({ ...editingRecord, data: { ...editingRecord.data, address: newAddr } });
-                                  }}
-                                />
-                              </div>
-                              <div>
-                                <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">City</label>
-                                <Input 
-                                  value={city}
-                                  onChange={(e) => {
-                                    const newAddr = `${street}, ${e.target.value}, ${state} ${zip}`;
-                                    setEditingRecord({ ...editingRecord, data: { ...editingRecord.data, address: newAddr } });
-                                  }}
-                                />
-                              </div>
-                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                  <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">State</label>
-                                  <Input 
-                                    value={state}
-                                    onChange={(e) => {
-                                      const newAddr = `${street}, ${city}, ${e.target.value} ${zip}`;
-                                      setEditingRecord({ ...editingRecord, data: { ...editingRecord.data, address: newAddr } });
-                                    }}
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">Zip Code</label>
-                                  <Input 
-                                    value={zip}
-                                    onChange={(e) => {
-                                      const newAddr = `${street}, ${city}, ${state} ${e.target.value}`;
-                                      setEditingRecord({ ...editingRecord, data: { ...editingRecord.data, address: newAddr } });
-                                    }}
-                                  />
-                                </div>
-                              </div>
-                            </React.Fragment>
-                          );
-                        }
-
                         if (editingRecord.type === 'events' && key === 'start_time') {
                           let dateValue = '';
                           let timeValue = '20:00';
@@ -1939,7 +2518,11 @@ export function ScraperView() {
                         }
                         return (
                           <div key={key}>
-                            <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">{key.replace('_', ' ')}</label>
+                            <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">
+                              {key === 'address_line1' ? 'Street Address' : 
+                               key === 'postal_code' ? 'Zip/Postal Code' : 
+                               key.replace('_', ' ')}
+                            </label>
                             <Input 
                               value={String(value || '')}
                               onChange={(e) => {
@@ -1964,47 +2547,9 @@ export function ScraperView() {
                     <Card className="bg-green-950/10 border-green-500/20 p-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {Object.entries(matchedRecord).map(([key, value]) => {
-                          if (['id', 'created_at', 'manager_id', 'updated_at'].includes(key)) return null;
+                          if (['id', 'created_at', 'manager_id', 'updated_at', 'address', 'street', 'zip'].includes(key)) return null;
                           
-                          if (editingRecord.type === 'venues' && key === 'address') {
-                            const addr = value as string || '';
-                            const parts = addr.split(', ');
-                            const street = parts[0] || '';
-                            const city = parts[1] || '';
-                            const stateZip = parts[2] || '';
-                            const [state, zip] = stateZip.split(' ') || ['', ''];
-
-                            return (
-                              <React.Fragment key={key}>
-                                <div className="md:col-span-2">
-                                  <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">Existing Street Address</label>
-                                  <div className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-neutral-400 italic">
-                                    {street}
-                                  </div>
-                                </div>
-                                <div>
-                                  <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">Existing City</label>
-                                  <div className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-neutral-400 italic">
-                                    {city}
-                                  </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                  <div>
-                                    <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">Existing State</label>
-                                    <div className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-neutral-400 italic">
-                                      {state}
-                                    </div>
-                                  </div>
-                                  <div>
-                                    <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">Existing Zip Code</label>
-                                    <div className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-neutral-400 italic">
-                                      {zip}
-                                    </div>
-                                  </div>
-                                </div>
-                              </React.Fragment>
-                            );
-                          }
+                          if ((editingRecord.type === 'venues' || editingRecord.type === 'bands') && (key === 'address' || key === 'street' || key === 'zip')) return null;
 
                           if (editingRecord.type === 'events' && key === 'start_time') {
                             try {
@@ -2036,7 +2581,11 @@ export function ScraperView() {
 
                           return (
                             <div key={key}>
-                              <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">{key.replace('_', ' ')}</label>
+                              <label className="block text-[10px] font-bold text-neutral-400 uppercase tracking-widest mb-2">
+                                Existing {key === 'address_line1' ? 'Street Address' : 
+                                         key === 'postal_code' ? 'Zip/Postal Code' : 
+                                         key.replace('_', ' ')}
+                              </label>
                               <div className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm text-neutral-400 italic">
                                 {Array.isArray(value) ? value.join(', ') : String(value || 'None')}
                               </div>

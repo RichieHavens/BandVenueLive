@@ -24,7 +24,7 @@ import { VenuesView } from './pages/VenuesView';
 import { BandsView } from './pages/BandsView';
 import { MusiciansView } from './pages/MusiciansView';
 import { FavoritesView } from './pages/FavoritesView';
-import { SyndicationManagerView } from './pages/SyndicationManagerView';
+import { PromoterView } from './pages/PromoterView';
 import { AdminView } from './pages/AdminView';
 import { AdminRoleRequestsView } from './pages/AdminRoleRequestsView';
 import { SuperAdminDashboard } from './pages/SuperAdminDashboard';
@@ -32,10 +32,9 @@ import { VenueManagerAdmin } from './pages/VenueManagerAdmin';
 import { BandManagerAdmin } from './pages/BandManagerAdmin';
 
 import { 
-  Loader2, LogOut, Music, Calendar, MapPin, Users, Settings, 
+  Loader2, LogOut, Music, Calendar, MapPin, Users, 
   ShieldCheck, UserCircle, Heart, Globe, LayoutDashboard, ChevronDown, Info
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
 
 function AppContent() {
   const { user, profile, loading, signOut, refreshProfile } = useAuth();
@@ -44,9 +43,6 @@ function AppContent() {
     setActiveTab, 
     unsavedChanges, 
     setUnsavedChanges, 
-    pendingTab, 
-    setPendingTab, 
-    confirmNavigation,
     selectedBandId,
     selectedEventId,
     eventFilter
@@ -162,12 +158,12 @@ function AppContent() {
             {activeTab === 'my-band' && <BandProfileEditor bandId={selectedBandId || undefined} onDirtyChange={setUnsavedChanges} onSaveSuccess={() => { setUnsavedChanges(false); setActiveTab('events'); }} />}
             {activeTab === 'my-event' && <EventProfileEditor eventId={selectedEventId || ''} onDirtyChange={setUnsavedChanges} onSaveSuccess={() => { setUnsavedChanges(false); setActiveTab('events'); }} />}
             {activeTab === 'my-profile' && <ProfileManager onDirtyChange={setUnsavedChanges} onSaveSuccess={() => { setUnsavedChanges(false); setActiveTab('events'); }} />}
-            {activeTab === 'admin' && <AdminView />}
+            {activeTab === 'super_admin' && <AdminView />}
             {activeTab === 'super-admin' && <SuperAdminDashboard />}
             {activeTab === 'role-requests' && <AdminRoleRequestsView />}
             {activeTab === 'venue-manager' && <VenueManagerAdmin />}
             {activeTab === 'band-manager' && <BandManagerAdmin />}
-            {activeTab === 'syndication' && <SyndicationManagerView />}
+            {activeTab === 'syndication' && <PromoterView />}
             {activeTab === 'favorites' && <FavoritesView />}
             {activeTab === 'login' && <AuthUI />}
             {activeTab === 'confirm-event' && <BandConfirmationPage eventId={window.location.pathname.split('/')[2]} />}
@@ -192,51 +188,6 @@ function AppContent() {
         isOpen={isAboutOpen} 
         onClose={() => setIsAboutOpen(false)} 
       />
-
-      {/* Navigation Confirmation Modal */}
-      <AnimatePresence>
-        {pendingTab && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-              onClick={() => setPendingTab(null)}
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-[2.5rem] p-8 shadow-2xl"
-            >
-              <div className="flex items-center gap-4 mb-6">
-                <div className="bg-red-600/10 p-3 rounded-2xl">
-                  <Settings className="text-red-600" size={24} />
-                </div>
-                <h3 className="text-2xl font-bold">Unsaved Changes</h3>
-              </div>
-              <p className="text-neutral-400 mb-8 leading-relaxed">
-                You have unsaved changes on this page. If you leave now, your progress will be lost. Are you sure you want to continue?
-              </p>
-              <div className="flex gap-4">
-                <button
-                  onClick={() => setPendingTab(null)}
-                  className="flex-1 px-6 py-3 bg-neutral-800 hover:bg-neutral-700 text-white font-bold rounded-2xl transition-all"
-                >
-                  Stay Here
-                </button>
-                <button
-                  onClick={confirmNavigation}
-                  className="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-2xl transition-all shadow-lg shadow-red-600/20"
-                >
-                  Leave Page
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

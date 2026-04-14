@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Loader2, Star, User, Heart } from 'lucide-react';
 import { useAuth } from '../AuthContext';
 import { Button } from '../components/ui/Button';
+import { cn } from '../lib/utils';
 
 export function MusiciansView() {
   const { user } = useAuth();
@@ -36,11 +37,30 @@ export function MusiciansView() {
   async function fetchMusicians() {
     try {
       const { data } = await supabase
-        .from('profiles')
-        .select('*, musicians(*)')
-        .contains('roles', ['musician']);
+        .from('musician_details')
+        .select(`
+          *,
+          people (
+            id,
+            first_name,
+            last_name,
+            profiles (
+              avatar_url
+            )
+          )
+        `);
       
-      if (data) setMusicians(data);
+      if (data) {
+        // Map to a flatter structure for the UI
+        const mapped = data.map(m => ({
+          id: m.id,
+          first_name: m.people?.first_name,
+          last_name: m.people?.last_name,
+          avatar_url: m.people?.profiles?.avatar_url,
+          musician_details: [m]
+        }));
+        setMusicians(mapped);
+      }
     } catch (err) {
       console.error('Error fetching musicians:', err);
     } finally {
@@ -90,14 +110,31 @@ export function MusiciansView() {
     <div className="space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <h2 className="text-4xl font-bold tracking-tight">Musicians</h2>
-        <Button
-          variant={showFavorites ? 'primary' : 'secondary'}
-          onClick={() => setShowFavorites(!showFavorites)}
-          className="flex items-center gap-2"
-        >
-          <Star size={18} fill={showFavorites ? 'currentColor' : 'none'} />
-          <span className="text-sm font-medium">Favorites</span>
-        </Button>
+        <div className="flex p-1 bg-neutral-900 border border-neutral-800 rounded-xl">
+          <button
+            onClick={() => setShowFavorites(false)}
+            className={cn(
+              "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+              !showFavorites 
+                ? "bg-neutral-800 text-white shadow-sm" 
+                : "text-neutral-500 hover:text-neutral-300"
+            )}
+          >
+            All
+          </button>
+          <button
+            onClick={() => setShowFavorites(true)}
+            className={cn(
+              "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2",
+              showFavorites 
+                ? "bg-blue-600 text-white shadow-sm" 
+                : "text-neutral-500 hover:text-neutral-300"
+            )}
+          >
+            <Star size={12} fill={showFavorites ? 'currentColor' : 'none'} />
+            Favorites
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -117,8 +154,8 @@ export function MusiciansView() {
               <div className="flex-1 min-w-0">
                 <h4 className="font-bold text-white">{m.first_name} {m.last_name}</h4>
                 <p className="text-neutral-400 text-xs">
-                  {m.musicians?.[0]?.instruments?.join(' • ') || 'Musician'}
-                  {m.musicians?.[0]?.looking_for_bands && ' • Looking for Band'}
+                  {m.musician_details?.[0]?.instruments?.join(' • ') || 'Musician'}
+                  {m.musician_details?.[0]?.looking_for_bands && ' • Looking for Band'}
                 </p>
               </div>
               <button
@@ -131,10 +168,10 @@ export function MusiciansView() {
           ))}
         </div>
       ) : (
-        <div className="bg-neutral-900 border border-neutral-800 rounded-3xl p-12 text-center">
-          <User className="mx-auto text-neutral-700 mb-4" size={48} />
-          <p className="text-neutral-400">
-            {showFavorites ? "You haven't added any musicians to your favorites yet." : "No musicians found."}
+        <div className="bg-neutral-900/50 border border-neutral-800/50 rounded-3xl p-12 text-center">
+          <User className="mx-auto text-neutral-800 mb-4" size={48} />
+          <p className="text-neutral-500 text-sm font-medium">
+            {showFavorites ? "No favorites yet." : "No musicians found."}
           </p>
         </div>
       )}

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { Band } from '../types';
 import { Search, Loader2, Music, Filter, Star } from 'lucide-react';
-import { formatDate } from '../lib/utils';
+import { formatDate, cn } from '../lib/utils';
 import ProfilePreviewModal from '../components/ProfilePreviewModal';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
@@ -44,8 +44,8 @@ export function BandsView() {
   async function fetchBands() {
     try {
       const { data, error } = await supabase
-        .from('bands')
-        .select('*, band_genres(genres(name)), profiles!updated_by(first_name, last_name)')
+        .from('bands_ordered')
+        .select('*, band_genres(genres(name)), people!updated_by_id(first_name, last_name)')
         .eq('is_published', true)
         .or('is_archived.is.null,is_archived.eq.false')
         .order('name');
@@ -104,14 +104,31 @@ export function BandsView() {
               {allGenres.map(g => <option key={g} value={g}>{g}</option>)}
             </select>
           </div>
-          <Button
-            variant={showFavorites ? 'primary' : 'secondary'}
-            onClick={() => setShowFavorites(!showFavorites)}
-            className="flex items-center gap-2"
-          >
-            <Star size={18} fill={showFavorites ? 'currentColor' : 'none'} />
-            <span className="text-sm font-medium">Favorites</span>
-          </Button>
+          <div className="flex p-1 bg-neutral-900 border border-neutral-800 rounded-xl">
+            <button
+              onClick={() => setShowFavorites(false)}
+              className={cn(
+                "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                !showFavorites 
+                  ? "bg-neutral-800 text-white shadow-sm" 
+                  : "text-neutral-500 hover:text-neutral-300"
+              )}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setShowFavorites(true)}
+              className={cn(
+                "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2",
+                showFavorites 
+                  ? "bg-blue-600 text-white shadow-sm" 
+                  : "text-neutral-500 hover:text-neutral-300"
+              )}
+            >
+              <Star size={12} fill={showFavorites ? 'currentColor' : 'none'} />
+              Favorites
+            </button>
+          </div>
         </div>
       </div>
 
@@ -145,9 +162,12 @@ export function BandsView() {
                     ))}
                   </div>
                   <h3 className="text-xl font-bold mb-0.5 text-white truncate">{band.name}</h3>
-                  {(band.city || band.state) && (
+                  {(band.address_line1 || band.city || band.state) && (
                     <p className="text-neutral-400 text-xs mb-2">
-                      {[band.city, band.state].filter(Boolean).join(', ')}
+                      {[
+                        band.address_line1,
+                        [band.city, band.state].filter(Boolean).join(', ')
+                      ].filter(Boolean).join(', ')}
                     </p>
                   )}
                   <p className="text-neutral-400 line-clamp-2 text-xs leading-relaxed">{band.description}</p>
@@ -162,10 +182,10 @@ export function BandsView() {
           })}
         </div>
       ) : (
-        <div className="bg-neutral-800/50 border border-neutral-700 rounded-3xl p-12 text-center">
-          <Music className="mx-auto text-neutral-600 mb-4" size={48} />
-          <p className="text-neutral-400">
-            {showFavorites ? "You haven't added any bands to your favorites yet." : "No bands found."}
+        <div className="bg-neutral-900/50 border border-neutral-800/50 rounded-3xl p-12 text-center">
+          <Music className="mx-auto text-neutral-800 mb-4" size={48} />
+          <p className="text-neutral-500 text-sm font-medium">
+            {showFavorites ? "No favorites yet." : "No bands found."}
           </p>
         </div>
       )}

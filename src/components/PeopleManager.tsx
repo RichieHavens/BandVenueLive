@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useNavigationContext } from '../context/NavigationContext';
-import { Person, Venue, Band, UserRole, MusicianProfile } from '../types';
-import { Loader2, Plus, Search, User, Mail, Phone, Building2, Music, Trash2, X, ShieldCheck, Clock, Eye, EyeOff, AlertCircle, Check, RefreshCcw } from 'lucide-react';
+import { Person, Venue, Band, UserRole, MusicianDetails } from '../types';
+import { Loader2, Plus, Search, User, Mail, Phone, Building2, Music, Trash2, X, ShieldCheck, Clock, Eye, EyeOff, AlertCircle, Check, RefreshCcw, Star } from 'lucide-react';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
 import { Card } from './ui/Card';
+import { Switch } from './ui/Switch';
 import { theme } from '../lib/theme';
 import { cn } from '../lib/utils';
 import { formatPhoneNumber } from '../lib/phoneFormatter';
@@ -15,15 +16,35 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
 const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
 
+import { useAuth } from '../AuthContext';
+
 export default function PeopleManager() {
+  const { personId } = useAuth();
   const { addRecentRecord } = useNavigationContext();
   const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  const logUpdate = async (tableName: string, recordId: string, changes: any) => {
+    try {
+      await supabase.from('audit_logs').insert({
+        table_name: tableName,
+        record_id: recordId,
+        changes,
+        user_id: personId,
+        created_by_id: personId
+      });
+    } catch (err) {
+      console.error('Error logging audit:', err);
+    }
+  };
   const [isAdding, setIsAdding] = useState(false);
   const [editingPerson, setEditingPerson] = useState<Person | null>(null);
   const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'musician'>('all');
+  // TODO: role logic removed
+  // const [roleFilter, setRoleFilter] = useState<UserRole | 'all'>('all');
 
   // Form state
   const [firstName, setFirstName] = useState('');
@@ -34,13 +55,17 @@ export default function PeopleManager() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [createAccount, setCreateAccount] = useState(false);
-  const [selectedRoles, setSelectedRoles] = useState<UserRole[]>(['guest']);
-  const [selectedRoleForAssociation, setSelectedRoleForAssociation] = useState<UserRole>('venue_manager');
-  const [musicianData, setMusicianData] = useState<Partial<MusicianProfile>>({
+  // TODO: role logic removed
+  // const [selectedRoles, setSelectedRoles] = useState<UserRole[]>(['registered_guest']);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [isSoloAct, setIsSoloAct] = useState(false);
+  const [isMusician, setIsMusician] = useState(false);
+  // TODO: role logic removed
+  // const [selectedRoleForAssociation, setSelectedRoleForAssociation] = useState<UserRole>('venue_manager');
+  const [musicianData, setMusicianData] = useState<Partial<MusicianDetails>>({
     instruments: [],
     looking_for_bands: false,
-    open_for_gigs: false,
-    is_solo_act: false
+    open_for_gigs: false
   });
   
   // Venue/Band selection state
@@ -53,12 +78,14 @@ export default function PeopleManager() {
   const [lookupLoading, setLookupLoading] = useState(false);
   const [existingVenueIds, setExistingVenueIds] = useState<string[]>([]);
   const [existingBandIds, setExistingBandIds] = useState<string[]>([]);
-  const [defaultRole, setDefaultRole] = useState<UserRole>('guest');
+  // TODO: role logic removed
+  // const [defaultRole, setDefaultRole] = useState<UserRole>('registered_guest');
   const [confirmDialog, setConfirmDialog] = useState<{ message: string, onConfirm: () => void } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState<{ id: string, name: string, isNew: boolean } | null>(null);
 
-  const ALL_ROLES: UserRole[] = ['venue_manager', 'band_manager', 'musician', 'guest', 'syndication_manager', 'admin'];
+  // TODO: role logic removed
+  // const ALL_ROLES: UserRole[] = ['venue_manager', 'band_manager', 'musician', 'registered_guest', 'promoter', 'super_admin'];
 
   useEffect(() => {
     fetchPeople();
@@ -68,7 +95,7 @@ export default function PeopleManager() {
   useEffect(() => {
     setEntitySearch('');
     setSelectedEntityId('');
-  }, [selectedRoleForAssociation]);
+  }, [/* selectedRoleForAssociation */]);
 
   useEffect(() => {
     if (editingPerson) {
@@ -82,10 +109,24 @@ export default function PeopleManager() {
       setLastName(editingPerson.last_name);
       setEmail(editingPerson.email || '');
       setPhone(editingPerson.phone || '');
-      setSelectedRoles(editingPerson.roles || ['guest']);
-      setDefaultRole(editingPerson.default_role || (editingPerson.roles && editingPerson.roles.length > 0 ? editingPerson.roles[0] : 'guest'));
+      setIsSuperAdmin(editingPerson.is_super_admin || false);
+      setIsSoloAct(editingPerson.is_solo_act || false);
+      // TODO: role logic removed
+      // setDefaultRole(editingPerson.default_role || 'registered_guest');
       setExistingVenueIds(editingPerson.venue_ids || []);
       setExistingBandIds(editingPerson.band_ids || []);
+      
+      if (editingPerson.musician_details) {
+        setIsMusician(true);
+        setMusicianData(editingPerson.musician_details);
+      } else {
+        setIsMusician(false);
+        setMusicianData({
+          instruments: [],
+          looking_for_bands: false,
+          open_for_gigs: false
+        });
+      }
       setCreateAccount(false);
       setPassword('');
       setConfirmPassword('');
@@ -98,8 +139,11 @@ export default function PeopleManager() {
       setPassword('');
       setConfirmPassword('');
       setCreateAccount(false);
-      setSelectedRoles(['guest']);
-      setDefaultRole('guest');
+      setIsSuperAdmin(false);
+      setIsSoloAct(false);
+      setIsMusician(false);
+      // TODO: role logic removed
+      // setDefaultRole('registered_guest');
       setExistingVenueIds([]);
       setExistingBandIds([]);
       setNewEntityName('');
@@ -113,7 +157,8 @@ export default function PeopleManager() {
       .from('people')
       .select(`
         *,
-        profiles:updated_by (
+        musician_details:musician_details(*),
+        people!updated_by_id (
           first_name,
           last_name,
           email
@@ -126,12 +171,14 @@ export default function PeopleManager() {
   }
 
   async function fetchEntities() {
-    const { data: vData } = await supabase.from('venues').select('id, name').order('name');
-    const { data: bData } = await supabase.from('bands').select('id, name').order('name');
+    const { data: vData } = await supabase.from('venues').select('id, name, manager_id').order('name');
+    const { data: bData } = await supabase.from('bands_ordered').select('id, name, manager_id').order('name');
     if (vData) setVenues(vData as any);
     if (bData) setBands(bData as any);
   }
 
+  // TODO: role logic removed
+  /*
   const toggleRole = (role: UserRole) => {
     setSelectedRoles(prev => {
       const nextRoles = prev.includes(role) 
@@ -141,37 +188,32 @@ export default function PeopleManager() {
       return nextRoles;
     });
   };
+  */
 
   async function handleSavePerson(e: React.FormEvent) {
     e.preventDefault();
     if (saving) return;
     
     setSaving(true);
+    setErrorMessage(null);
     try {
       console.log('Saving person:', { firstName, lastName, email, createAccount });
       
+      // Validation
       if (createAccount && password !== confirmPassword) {
-        alert('Passwords do not match');
-        setSaving(false);
-        return;
+        throw new Error('Passwords do not match');
       }
 
       if (createAccount && password && password.length < 6) {
-        alert('Password must be at least 6 characters long');
-        setSaving(false);
-        return;
+        throw new Error('Password must be at least 6 characters long');
       }
 
       if (email && !email.includes('@')) {
-        alert('Please enter a valid email address');
-        setSaving(false);
-        return;
+        throw new Error('Please enter a valid email address');
       }
 
       if (!firstName.trim() || !lastName.trim()) {
-        alert('First and last name are required');
-        setSaving(false);
-        return;
+        throw new Error('First and last name are required');
       }
 
       const emailToSave = email.trim().toLowerCase() || null;
@@ -179,38 +221,29 @@ export default function PeopleManager() {
       
       let newUserId: string | null = null;
 
-      // 1. If creating/linking account, check if it exists first
+      // 1. Handle Auth Account Creation/Linking
       if (createAccount) {
         if (!emailToSave) {
-          alert('Email is required to assign login privileges.');
-          setSaving(false);
-          return;
+          throw new Error('Email is required to assign login privileges.');
         }
-        console.log('Checking for existing profile for:', emailToSave);
-        const { data: existingProfile, error: profileError } = await supabase
+
+        const { data: existingProfile } = await supabase
           .from('profiles')
           .select('id')
           .eq('email', emailToSave)
           .maybeSingle();
         
-        if (profileError) console.error('Error checking existing profile:', profileError);
-
         if (existingProfile) {
           newUserId = existingProfile.id;
-          console.log('Found existing profile for email, linking instead of creating:', newUserId);
         } else if (password) {
-          console.log('No existing profile found. Attempting to create new auth account for:', emailToSave);
-          
           if (!supabaseUrl || !supabaseAnonKey) {
             throw new Error('Supabase configuration missing. Cannot create auth account.');
           }
 
-          // Use a non-persisting client for signUp so the Admin doesn't get logged out
           const tempSupabase = createClient(supabaseUrl, supabaseAnonKey, {
             auth: { persistSession: false }
           });
 
-          // 1b. If creating full account, do that first
           const { data: signUpData, error: signUpError } = await tempSupabase.auth.signUp({
             email: emailToSave,
             password,
@@ -223,19 +256,17 @@ export default function PeopleManager() {
           });
           
           if (signUpError) {
-            console.error('SignUp Error Details:', JSON.stringify(signUpError, null, 2));
             if (signUpError.message.includes('User already registered')) {
-              throw new Error(`The email ${emailToSave} is already registered in Auth but has no profile. Try linking it manually or check the email.`);
+              throw new Error(`The email ${emailToSave} is already registered in Auth but has no profile. Try linking it manually.`);
             }
             throw signUpError;
           }
           
           newUserId = signUpData.user?.id || null;
-          console.log('Auth account creation successful. New User ID:', newUserId);
         }
       }
 
-      // 1c. Check if email is already in use by another person record
+      // 2. Check for duplicate person record
       if (emailToSave) {
         const { data: personWithEmail } = await supabase
           .from('people')
@@ -248,17 +279,25 @@ export default function PeopleManager() {
         }
       }
 
+      // 3. Handle Entity Creation
       let entityId = selectedEntityId;
       const venueIds = [...existingVenueIds];
       const bandIds = [...existingBandIds];
-      let finalRoles = [...selectedRoles];
+      // TODO: role logic removed
+      // let finalRoles = [...selectedRoles];
 
-      // 2. Create new venue/band if needed
       if (selectedEntityId === 'new' && newEntityName.trim()) {
-        const table = selectedRoleForAssociation === 'venue_manager' ? 'venues' : 'bands';
+        // TODO: role logic removed
+        // const table = selectedRoleForAssociation === 'venue_manager' ? 'venues' : 'bands';
+        const table = 'venues'; // Temporary fallback
         const { data: newEntity, error: entityError } = await supabase
           .from(table)
-          .insert({ name: newEntityName.trim() })
+          .insert({ 
+            name: newEntityName.trim(),
+            created_by_id: personId,
+            updated_at: new Date().toISOString(),
+            updated_by_id: personId
+          })
           .select()
           .single();
         
@@ -266,8 +305,10 @@ export default function PeopleManager() {
         entityId = newEntity.id;
       }
 
-      let finalDefaultRole = defaultRole;
+      // TODO: role logic removed
+      // let finalDefaultRole = defaultRole;
       if (entityId && entityId !== 'new') {
+        /* TODO: role logic removed
         if (selectedRoleForAssociation === 'venue_manager' && !venueIds.includes(entityId)) {
           venueIds.push(entityId);
           if (!finalRoles.includes('venue_manager')) finalRoles.push('venue_manager');
@@ -278,25 +319,29 @@ export default function PeopleManager() {
           if (!finalRoles.includes('band_manager')) finalRoles.push('band_manager');
           if (!editingPerson) finalDefaultRole = 'band_manager';
         }
+        */
       }
 
       const targetUserId = newUserId || editingPerson?.user_id;
 
-      const personData = {
+      // 4. Save Person Record
+      const personData: any = {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
         email: emailToSave,
         phone: phone.trim(),
         user_id: targetUserId,
-        roles: finalRoles,
-        default_role: finalDefaultRole,
-        venue_ids: venueIds,
-        band_ids: bandIds,
+        is_super_admin: isSuperAdmin,
+        is_solo_act: isSoloAct,
+        // TODO: role logic removed
+        // default_role: finalDefaultRole,
+        // venue_ids: venueIds,
+        // band_ids: bandIds,
         updated_at: new Date().toISOString(),
-        updated_by: currentUser?.id
+        updated_by_id: personId
       };
 
-      let personId = editingPerson?.id;
+      let savedPersonId = editingPerson?.id;
 
       if (editingPerson) {
         const { error } = await supabase
@@ -304,90 +349,75 @@ export default function PeopleManager() {
           .update(personData)
           .eq('id', editingPerson.id);
         if (error) throw error;
-
-        // If we have a user_id (linked or existing), update the profile too
-        if (targetUserId) {
-          console.log('Syncing profile for user:', targetUserId);
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .upsert({
-              id: targetUserId,
-              email: emailToSave,
-              first_name: firstName.trim(),
-              last_name: lastName.trim(),
-              phone: phone.trim(),
-              roles: finalRoles,
-              default_role: finalDefaultRole
-            });
-          if (profileError) console.warn('Profile sync warning:', profileError);
-
-          if (finalRoles.includes('musician')) {
-            await supabase
-              .from('musician_profiles')
-              .upsert({
-                id: targetUserId,
-                ...musicianData
-              });
-          }
-        }
+        await logUpdate('people', editingPerson.id, personData);
       } else {
-        // Use upsert to handle case where trigger might have already created the record via signUp
-        // If email is null, we can't use onConflict: 'email'. We just insert.
-        let newPerson, personError;
-        if (emailToSave) {
-          const result = await supabase
-            .from('people')
-            .upsert(personData, { onConflict: 'email' })
-            .select()
-            .single();
-          newPerson = result.data;
-          personError = result.error;
-        } else {
-          const result = await supabase
-            .from('people')
-            .insert(personData)
-            .select()
-            .single();
-          newPerson = result.data;
-          personError = result.error;
-        }
+        const { data: newPerson, error: personError } = await supabase
+          .from('people')
+          .upsert({
+            ...personData,
+            created_by_id: personId
+          }, { onConflict: 'email' })
+          .select()
+          .single();
         
         if (personError) throw personError;
-        personId = newPerson.id;
+        savedPersonId = newPerson.id;
+        await logUpdate('people', savedPersonId, personData);
+      }
 
-        // If we just created an auth account, sync profile
-        if (newUserId) {
-          await supabase
-            .from('profiles')
+      // 5. Sync Profile and Musician Details
+      if (targetUserId) {
+        const profileData = {
+          id: targetUserId,
+          email: emailToSave,
+          first_name: firstName.trim(),
+          last_name: lastName.trim(),
+          phone: phone.trim(),
+          is_super_admin: isSuperAdmin,
+          // TODO: role logic removed
+          // default_role: finalDefaultRole,
+          updated_at: new Date().toISOString(),
+          updated_by_id: personId
+        };
+
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert(profileData);
+        
+        if (profileError) console.warn('Profile sync warning:', profileError);
+      }
+
+      // Handle Musician Details (tied to personId, not userId)
+      if (savedPersonId) {
+        if (isMusician) {
+          const { error: musicianError } = await supabase
+            .from('musician_details')
             .upsert({
-              id: newUserId,
-              email: emailToSave,
-              first_name: firstName.trim(),
-              last_name: lastName.trim(),
-              phone: phone.trim(),
-              roles: finalRoles,
-              default_role: finalDefaultRole
+              id: savedPersonId,
+              ...musicianData,
+              updated_at: new Date().toISOString(),
+              updated_by_id: personId
             });
-          
-          // Sync musician profile if they are a musician
-          if (finalRoles.includes('musician')) {
-            await supabase
-              .from('musician_profiles')
-              .upsert({
-                id: newUserId,
-                ...musicianData
-              });
-          }
+          if (musicianError) console.warn('Musician details sync warning:', musicianError);
+        } else {
+          const { error: deleteError } = await supabase
+            .from('musician_details')
+            .delete()
+            .eq('id', savedPersonId);
+          if (deleteError) console.warn('Musician details delete warning:', deleteError);
         }
       }
 
-      // 3. Link entity back to person
-      if (entityId && entityId !== 'new' && personId) {
-        const table = selectedRoleForAssociation === 'venue_manager' ? 'venues' : 'bands';
-        const updateData: any = { person_id: personId };
+      // 6. Link Entity Back
+      if (entityId && entityId !== 'new' && savedPersonId) {
+        // TODO: role logic removed
+        // const table = selectedRoleForAssociation === 'venue_manager' ? 'venues' : 'bands';
+        const table = 'venues'; // Temporary fallback
+        const updateData: any = { 
+          updated_at: new Date().toISOString(),
+          updated_by_id: personId
+        };
         
-        // Also set manager_id if we have a targetUserId (Auth ID)
-        // This ensures the user can access the entity in their profile editor
         if (targetUserId) {
           updateData.manager_id = targetUserId;
         }
@@ -397,26 +427,22 @@ export default function PeopleManager() {
           .update(updateData)
           .eq('id', entityId);
         
-        if (linkError) {
-          console.error(`Error linking ${table}:`, linkError);
-          // Don't throw here, as the person record was already saved successfully
-        }
+        if (linkError) console.error(`Error linking ${table}:`, linkError);
       }
 
-      // Reset form
-      // setIsAdding(false);
-      // setEditingPerson(null);
       await fetchPeople();
       await fetchEntities();
-      setSaveSuccess({ id: personId as string, name: `${firstName.trim()} ${lastName.trim()}`, isNew: !editingPerson });
+      setSaveSuccess({ 
+        id: savedPersonId as string, 
+        name: `${firstName.trim()} ${lastName.trim()}`, 
+        isNew: !editingPerson 
+      });
     } catch (error: any) {
       console.error('Error saving person:', error);
       if (error.status === 429) {
-        alert('Rate limit exceeded. Supabase limits how many new accounts can be created in a short period (usually 3 per hour on free tier). Please wait a while before adding more people with login accounts.');
-      } else if (error.message?.toLowerCase().includes('already registered') || error.message?.toLowerCase().includes('already exists')) {
-        alert('This email is already registered. The person record will be updated, but you may need to link it manually if it doesn\'t link automatically.');
+        setErrorMessage('Rate limit exceeded. Please wait a while before adding more login accounts.');
       } else {
-        alert(error.message || 'Error saving person');
+        setErrorMessage(error.message || 'Error saving person');
       }
     } finally {
       setSaving(false);
@@ -427,9 +453,9 @@ export default function PeopleManager() {
     try {
       // Check if person is linked to any bands
       const { data: linkedBands, error: checkError } = await supabase
-        .from('bands')
+        .from('bands_ordered')
         .select('id, name')
-        .eq('person_id', id);
+        .eq('created_by_id', id);
         
       if (checkError) throw checkError;
       
@@ -472,15 +498,15 @@ export default function PeopleManager() {
           let description = '';
           
           if (person.user_id) {
-            const { data: musicianProfile } = await supabase
-              .from('musicians')
+            const { data: musicianDetails } = await supabase
+              .from('musician_details')
               .select('*')
-              .eq('id', person.user_id)
+              .eq('id', person.id)
               .maybeSingle();
               
-            if (musicianProfile) {
-              phone = musicianProfile.phone || phone;
-              description = musicianProfile.description || '';
+            if (musicianDetails) {
+              phone = musicianDetails.phone || phone;
+              description = musicianDetails.description || '';
             }
           }
 
@@ -489,7 +515,7 @@ export default function PeopleManager() {
             .insert({
               name: bandName,
               manager_id: person.user_id || null,
-              person_id: person.id,
+              created_by_id: person.id,
               phone: phone,
               description: description,
               is_published: false
@@ -500,13 +526,13 @@ export default function PeopleManager() {
           if (bandError) throw bandError;
 
           // Update the person's band_ids array to include the new band
-          const updatedBandIds = [...(person.band_ids || []), newBand.id];
-          const { error: personUpdateError } = await supabase
-            .from('people')
-            .update({ band_ids: updatedBandIds })
-            .eq('id', person.id);
+          // const updatedBandIds = [...(person.band_ids || []), newBand.id];
+          // const { error: personUpdateError } = await supabase
+          //   .from('people')
+          //   .update({ band_ids: updatedBandIds })
+          //   .eq('id', person.id);
             
-          if (personUpdateError) throw personUpdateError;
+          // if (personUpdateError) throw personUpdateError;
 
           alert(`Successfully created Solo Act: ${bandName}`);
           fetchPeople();
@@ -521,19 +547,31 @@ export default function PeopleManager() {
     });
   }
 
-  const filteredEntities = (selectedRoleForAssociation === 'venue_manager' ? venues : bands)
-    .filter(e => e.name.toLowerCase().includes(entitySearch.toLowerCase()));
+  // TODO: role logic removed
+  // const filteredEntities = (selectedRoleForAssociation === 'venue_manager' ? venues : bands)
+  //   .filter(e => e.name.toLowerCase().includes(entitySearch.toLowerCase()));
+  const filteredEntities = venues.filter(e => e.name.toLowerCase().includes(entitySearch.toLowerCase())); // Temporary fallback
 
   const filteredPeople = people.filter(p => {
     const matchesSearch = `${p.first_name} ${p.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
       (p.email && p.email.toLowerCase().includes(search.toLowerCase()));
-    const matchesRole = roleFilter === 'all' || p.roles.includes(roleFilter);
-    return matchesSearch && matchesRole;
+    
+    if (typeFilter === 'musician') return matchesSearch && !!p.musician_details;
+    
+    // TODO: role logic removed
+    /*
+    if (roleFilter === 'all') return matchesSearch;
+    
+    if (roleFilter === 'super_admin') return matchesSearch && p.is_super_admin;
+    */
+    
+    return matchesSearch;
   });
 
   async function handleLookupUser() {
     if (!email.trim()) return;
     setLookupLoading(true);
+    setErrorMessage(null);
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -545,13 +583,17 @@ export default function PeopleManager() {
         setFirstName(data.first_name || '');
         setLastName(data.last_name || '');
         setPhone(data.phone || '');
-        setSelectedRoles(data.roles || ['guest']);
-        setCreateAccount(true); // Since they have a profile, they have an account
+        // TODO: role logic removed
+        // setSelectedRoles(data.roles || ['registered_guest']);
+        setCreateAccount(true);
+        setSuccessMessage('Existing account found and linked!');
+        setTimeout(() => setSuccessMessage(null), 3000);
       } else {
-        alert('No existing user found with this email.');
+        setErrorMessage('No existing user found with this email.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Lookup error:', err);
+      setErrorMessage(err.message);
     } finally {
       setLookupLoading(false);
     }
@@ -617,6 +659,15 @@ export default function PeopleManager() {
           />
         </div>
         <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value as any)}
+          className={cn(theme.input, "min-w-[160px]")}
+        >
+          <option value="all">All People</option>
+          <option value="musician">Musicians</option>
+        </select>
+        {/* TODO: role logic removed
+        <select
           value={roleFilter}
           onChange={(e) => setRoleFilter(e.target.value as any)}
           className={cn(theme.input, "min-w-[160px]")}
@@ -626,6 +677,7 @@ export default function PeopleManager() {
             <option key={role} value={role}>{role.replace('_', ' ')}</option>
           ))}
         </select>
+        */}
       </div>
 
       {(isAdding || editingPerson || saveSuccess) && (
@@ -673,8 +725,9 @@ export default function PeopleManager() {
                         setLastName('');
                         setEmail('');
                         setPhone('');
-                        setSelectedRoles(['guest']);
-                        setDefaultRole('guest');
+                        // TODO: role logic removed
+                        // setSelectedRoles(['registered_guest']);
+                        // setDefaultRole('registered_guest');
                         setExistingVenueIds([]);
                         setExistingBandIds([]);
                         setCreateAccount(false);
@@ -706,53 +759,83 @@ export default function PeopleManager() {
                 <>
                   <h4 className="text-2xl font-bold mb-6">{editingPerson ? 'Edit Person' : 'Add New Person'}</h4>
                   
-                  <form onSubmit={handleSavePerson} className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">First Name</label>
-                        <Input
-                          required
-                          type="text"
-                          value={firstName}
-                          onChange={(e) => setFirstName(e.target.value)}
-                          className="bg-neutral-800"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Last Name</label>
-                        <Input
-                          required
-                          type="text"
-                          value={lastName}
-                          onChange={(e) => setLastName(e.target.value)}
-                          className="bg-neutral-800"
-                        />
-                      </div>
+                  {errorMessage && (
+                    <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 rounded-xl flex items-center gap-3 text-red-500">
+                      <AlertCircle size={20} />
+                      <p className="text-sm font-medium">{errorMessage}</p>
                     </div>
+                  )}
 
-                    <div className="space-y-2">
-                      <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">
-                        Email Address {createAccount && <span className="text-red-500">*</span>}
-                      </label>
-                      <div className="flex gap-2">
-                        <Input
-                          required={createAccount}
-                          type="email"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          placeholder="user@example.com"
-                          className="bg-neutral-800"
-                        />
-                        {!editingPerson && (
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={handleLookupUser}
-                            disabled={lookupLoading || !email}
-                          >
-                            {lookupLoading ? <Loader2 size={14} className="animate-spin" /> : 'Lookup'}
-                          </Button>
-                        )}
+                  <form onSubmit={handleSavePerson} className="space-y-4">
+                    {/* Section 1: Personal Information */}
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-6 h-6 bg-red-600/10 rounded-lg flex items-center justify-center text-red-500">
+                          <User size={14} />
+                        </div>
+                        <h5 className="text-sm font-bold uppercase tracking-widest text-white">Personal Information</h5>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">First Name</label>
+                          <Input
+                            required
+                            type="text"
+                            value={firstName}
+                            onChange={(e) => setFirstName(e.target.value)}
+                            className="bg-neutral-800 border-neutral-700 focus:ring-red-600"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Last Name</label>
+                          <Input
+                            required
+                            type="text"
+                            value={lastName}
+                            onChange={(e) => setLastName(e.target.value)}
+                            className="bg-neutral-800 border-neutral-700 focus:ring-red-600"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+                            Email Address {createAccount && <span className="text-red-500">*</span>}
+                          </label>
+                          <div className="flex gap-2">
+                            <Input
+                              required={createAccount}
+                              type="email"
+                              value={email}
+                              onChange={(e) => setEmail(e.target.value)}
+                              placeholder="user@example.com"
+                              className="bg-neutral-800 border-neutral-700 focus:ring-red-600"
+                            />
+                            {!editingPerson && (
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                onClick={handleLookupUser}
+                                disabled={lookupLoading || !email}
+                                className="shrink-0"
+                              >
+                                {lookupLoading ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Phone Number</label>
+                          <Input
+                            type="tel"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            placeholder="(555) 000-0000"
+                            className="bg-neutral-800 border-neutral-700 focus:ring-red-600"
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -766,124 +849,137 @@ export default function PeopleManager() {
                       />
                     </div>
 
-                    {(!editingPerson || !editingPerson.user_id) ? (
-                      <div className="pt-4 border-t border-neutral-800 space-y-4">
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            id="createAccount"
-                            checked={createAccount}
-                            onChange={(e) => setCreateAccount(e.target.checked)}
-                            className="rounded border-neutral-700 bg-neutral-800 text-blue-500 focus:ring-blue-500"
-                          />
-                          <label htmlFor="createAccount" className="text-xs font-bold uppercase tracking-widest text-neutral-400">
-                            Assign Login Privileges (Set Password)
-                          </label>
+                    {/* Section 2: Login & Account */}
+                    <div className="space-y-4 pt-4 border-t border-neutral-800">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-6 h-6 bg-red-600/10 rounded-lg flex items-center justify-center text-red-500">
+                          <ShieldCheck size={14} />
                         </div>
-
-                        {createAccount && (
-                          <div className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Password</label>
-                                <div className="relative">
-                                  <Input
-                                    required={createAccount}
-                                    type={showPassword ? "text" : "password"}
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="Min 6 chars..."
-                                    className="pr-10 bg-neutral-800"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
-                                  >
-                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                  </button>
-                                </div>
-                              </div>
-                              <div className="space-y-2">
-                                <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Confirm Password</label>
-                                <div className="relative">
-                                  <Input
-                                    required={createAccount}
-                                    type={showPassword ? "text" : "password"}
-                                    value={confirmPassword}
-                                    onChange={(e) => setConfirmPassword(e.target.value)}
-                                    placeholder="Repeat password..."
-                                    className="pr-10 bg-neutral-800"
-                                  />
-                                  <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
-                                  >
-                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                            <p className="text-[10px] text-neutral-400 italic">
-                              Warning: Creating an account here may log you out of your current session. Use Incognito for testing.
-                            </p>
-                          </div>
-                        )}
+                        <h5 className="text-sm font-bold uppercase tracking-widest text-white">Login & Account</h5>
                       </div>
-                    ) : (
-                      <div className="pt-4 border-t border-neutral-800 space-y-4">
-                        <div className="flex flex-col gap-3 bg-neutral-800 p-4 rounded-xl border border-neutral-700">
-                    <div>
-                      <p className="text-sm font-bold text-white flex items-center gap-2">
-                        <ShieldCheck size={16} className="text-green-500" />
-                        Login Account Active
-                      </p>
-                      <p className="text-xs text-neutral-400 mt-1">This user has an active login account. If they are having trouble logging in, use the tools below.</p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase());
-                            if (error) throw error;
-                            alert('Password reset email sent to ' + email);
-                          } catch (err: any) {
-                            alert('Error: ' + err.message);
-                          }
-                        }}
-                        className="px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white text-xs font-bold rounded-lg transition-colors flex-1 text-center"
-                      >
-                        Send Password Reset
-                      </button>
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          try {
-                            const { error } = await supabase.auth.resend({
-                              type: 'signup',
-                              email: email.trim().toLowerCase(),
-                              options: {
-                                emailRedirectTo: window.location.origin
-                              }
-                            });
-                            if (error) throw error;
-                            alert('Confirmation email resent to ' + email);
-                          } catch (err: any) {
-                            alert('Error: ' + err.message);
-                          }
-                        }}
-                        className="px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white text-xs font-bold rounded-lg transition-colors flex-1 text-center"
-                      >
-                        Resend Confirmation
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
 
-              {selectedRoles.includes('musician') && (
+                      {(!editingPerson || !editingPerson.user_id) ? (
+                        <div className="bg-neutral-800/50 p-4 rounded-xl border border-neutral-700/50 space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-bold text-white">Assign Login Privileges</p>
+                              <p className="text-[10px] text-neutral-400">Allow this person to log in with their email.</p>
+                            </div>
+                            <Switch
+                              checked={createAccount}
+                              onCheckedChange={setCreateAccount}
+                            />
+                          </div>
+
+                          {createAccount && (
+                            <div className="space-y-4 pt-4 border-t border-neutral-700">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Password</label>
+                                  <div className="relative">
+                                    <Input
+                                      required={createAccount}
+                                      type={showPassword ? "text" : "password"}
+                                      value={password}
+                                      onChange={(e) => setPassword(e.target.value)}
+                                      placeholder="Min 6 chars..."
+                                      className="pr-10 bg-neutral-800 border-neutral-700 focus:ring-red-600"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowPassword(!showPassword)}
+                                      className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
+                                    >
+                                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                  </div>
+                                </div>
+                                <div className="space-y-2">
+                                  <label className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Confirm Password</label>
+                                  <div className="relative">
+                                    <Input
+                                      required={createAccount}
+                                      type={showPassword ? "text" : "password"}
+                                      value={confirmPassword}
+                                      onChange={(e) => setConfirmPassword(e.target.value)}
+                                      placeholder="Repeat password..."
+                                      className="pr-10 bg-neutral-800 border-neutral-700 focus:ring-red-600"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowPassword(!showPassword)}
+                                      className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400 hover:text-white"
+                                    >
+                                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                              <p className="text-[10px] text-neutral-500 italic">
+                                Note: This will create a new authentication account for the user.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="bg-neutral-800/50 p-4 rounded-xl border border-neutral-700/50">
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="w-8 h-8 bg-green-500/10 rounded-full flex items-center justify-center text-green-500">
+                              <ShieldCheck size={18} />
+                            </div>
+                            <div>
+                              <p className="text-sm font-bold text-white">Account Active</p>
+                              <p className="text-[10px] text-neutral-400">This person has a registered login account.</p>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase());
+                                  if (error) throw error;
+                                  setSuccessMessage('Password reset email sent!');
+                                  setTimeout(() => setSuccessMessage(null), 3000);
+                                } catch (err: any) {
+                                  setErrorMessage(err.message);
+                                }
+                              }}
+                              className="flex-1"
+                            >
+                              Reset Password
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              onClick={async () => {
+                                try {
+                                  const { error } = await supabase.auth.resend({
+                                    type: 'signup',
+                                    email: email.trim().toLowerCase(),
+                                    options: { emailRedirectTo: window.location.origin }
+                                  });
+                                  if (error) throw error;
+                                  setSuccessMessage('Confirmation email resent!');
+                                  setTimeout(() => setSuccessMessage(null), 3000);
+                                } catch (err: any) {
+                                  setErrorMessage(err.message);
+                                }
+                              }}
+                              className="flex-1"
+                            >
+                              Resend Confirmation
+                            </Button>
+                          </div>
+                          {successMessage && <p className="text-[10px] text-green-500 mt-2 font-bold">{successMessage}</p>}
+                        </div>
+                      )}
+                    </div>
+
+              {isMusician && (
                 <div className="pt-4 border-t border-neutral-800 space-y-4">
                   <h5 className="text-sm font-bold text-white">Musician Details</h5>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -921,34 +1017,31 @@ export default function PeopleManager() {
                       <input type="checkbox" id="openForGigs" checked={musicianData.open_for_gigs || false} onChange={(e) => setMusicianData({...musicianData, open_for_gigs: e.target.checked})} className="rounded border-neutral-700 bg-neutral-800 text-red-500 focus:ring-red-600" />
                       <label htmlFor="openForGigs" className="text-xs font-bold uppercase tracking-widest text-neutral-400">Open for Gigs</label>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <input type="checkbox" id="isSoloAct" checked={musicianData.is_solo_act || false} onChange={(e) => setMusicianData({...musicianData, is_solo_act: e.target.checked})} className="rounded border-neutral-700 bg-neutral-800 text-red-500 focus:ring-red-600" />
-                      <label htmlFor="isSoloAct" className="text-xs font-bold uppercase tracking-widest text-neutral-400">Is Solo Act</label>
-                    </div>
                   </div>
                 </div>
               )}
 
-              <div className="space-y-3">
-                <label className="text-xs font-bold uppercase tracking-widest text-neutral-400 block">Roles</label>
-                <div className="flex flex-wrap gap-2">
-                  {ALL_ROLES.map(role => (
-                    <button
-                      key={role}
-                      type="button"
-                      onClick={() => toggleRole(role)}
-                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${
-                        selectedRoles.includes(role)
-                          ? 'bg-red-600 text-white'
-                          : 'bg-neutral-800 text-neutral-400 hover:bg-neutral-700'
-                      }`}
-                    >
-                      {role.replace('_', ' ')}
-                    </button>
-                  ))}
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-widest text-neutral-400 block mb-2">Status & Permissions</label>
+                  <div className="flex flex-wrap gap-4">
+                    <div className="flex items-center gap-2">
+                      <Switch checked={isSuperAdmin} onCheckedChange={setIsSuperAdmin} />
+                      <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Super Admin</label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch checked={isMusician} onCheckedChange={setIsMusician} />
+                      <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Musician</label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Switch checked={isSoloAct} onCheckedChange={setIsSoloAct} />
+                      <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Solo Act</label>
+                    </div>
+                  </div>
                 </div>
               </div>
 
+              {/* TODO: role logic removed
               {selectedRoles.length > 0 && (
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase tracking-widest text-neutral-400 block">Default Role</label>
@@ -958,7 +1051,11 @@ export default function PeopleManager() {
                     className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-red-600"
                   >
                     {selectedRoles.map(role => (
-                      <option key={role} value={role}>{role.replace('_', ' ')}</option>
+                      <option key={role} value={role}>
+                        {role === 'super_admin' ? 'Super Admin' : 
+                         role === 'promoter' ? 'Promoter' : 
+                         role.replace('_', ' ')}
+                      </option>
                     ))}
                   </select>
                   <p className="text-[10px] text-neutral-400 italic">
@@ -966,6 +1063,7 @@ export default function PeopleManager() {
                   </p>
                 </div>
               )}
+              */}
 
               <div className="pt-4 border-t border-neutral-800">
                 <h5 className="text-sm font-bold uppercase tracking-widest text-neutral-400 mb-4">Associations</h5>
@@ -1016,6 +1114,7 @@ export default function PeopleManager() {
                 )}
 
                 <div className="space-y-4">
+                  {/* TODO: role logic removed
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">Add New Association</label>
                     <select
@@ -1030,10 +1129,14 @@ export default function PeopleManager() {
                       <option value="band_manager">Band Manager</option>
                     </select>
                   </div>
+                  */}
 
                   <div className="space-y-2 relative">
                     <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">
+                      {/* TODO: role logic removed
                       {selectedRoleForAssociation === 'venue_manager' ? 'Search Venue' : 'Search Band'}
+                      */}
+                      Search Venue
                     </label>
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400" size={14} />
@@ -1045,7 +1148,7 @@ export default function PeopleManager() {
                           setShowEntityDropdown(true);
                         }}
                         onFocus={() => setShowEntityDropdown(true)}
-                        placeholder={`Type to search ${selectedRoleForAssociation === 'venue_manager' ? 'venues' : 'bands'}...`}
+                        placeholder={`Type to search venues...`}
                         className="w-full bg-neutral-800 border border-neutral-700 rounded-xl pl-9 pr-4 py-2 text-sm outline-none focus:ring-2 focus:ring-red-600"
                       />
                     </div>
@@ -1061,7 +1164,10 @@ export default function PeopleManager() {
                           }}
                           className="w-full text-left px-4 py-2 text-sm hover:bg-neutral-800 text-red-500 font-bold border-b border-neutral-800"
                         >
+                          {/* TODO: role logic removed
                           + Add New {selectedRoleForAssociation === 'venue_manager' ? 'Venue' : 'Band'}
+                          */}
+                          + Add New Venue
                         </button>
                         {filteredEntities.length > 0 ? (
                           filteredEntities.map(entity => (
@@ -1094,7 +1200,10 @@ export default function PeopleManager() {
                   {selectedEntityId === 'new' && (
                     <div className="space-y-2">
                       <label className="text-xs font-bold uppercase tracking-widest text-neutral-400">
+                        {/* TODO: role logic removed
                         New {selectedRoleForAssociation === 'venue_manager' ? 'Venue' : 'Band'} Name
+                        */}
+                        New Venue Name
                       </label>
                       <input
                         required={selectedEntityId === 'new'}
@@ -1135,7 +1244,7 @@ export default function PeopleManager() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredPeople.map((person) => {
-            const isSoloAct = person.musician_profiles?.is_solo_act || false;
+            const isSoloAct = person.is_solo_act || false;
             return (
             <div key={person.id} className="p-4 bg-neutral-800 rounded-2xl border border-neutral-700/50 hover:border-red-600/30 transition-all group flex flex-col gap-3">
               <div className="flex justify-between items-start">
@@ -1177,7 +1286,7 @@ export default function PeopleManager() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  {person.roles.includes('musician') && !isSoloAct && (
+                  {person.musician_details && !isSoloAct && (
                     <button
                       onClick={() => handleCreateSoloActAdmin(person)}
                       className="text-red-500 hover:text-red-400 transition-all text-[10px] font-bold uppercase tracking-widest flex items-center gap-1 mr-2 bg-red-500/10 px-2 py-1 rounded-lg"
@@ -1214,11 +1323,21 @@ export default function PeopleManager() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                {person.roles.map(role => (
-                  <span key={role} className="px-1.5 py-0.5 bg-red-600/10 text-red-500 text-[9px] font-bold uppercase tracking-widest rounded">
-                    {role.replace('_', ' ')}
+                {person.is_super_admin && (
+                  <span className="px-1.5 py-0.5 bg-red-600/10 text-red-500 text-[9px] font-bold uppercase tracking-widest rounded flex items-center gap-1">
+                    <ShieldCheck size={10} /> Super Admin
                   </span>
-                ))}
+                )}
+                {person.musician_details && (
+                  <span className="px-1.5 py-0.5 bg-blue-600/10 text-blue-500 text-[9px] font-bold uppercase tracking-widest rounded flex items-center gap-1">
+                    <Music size={10} /> Musician
+                  </span>
+                )}
+                {person.is_solo_act && (
+                  <span className="px-1.5 py-0.5 bg-purple-600/10 text-purple-400 text-[9px] font-bold uppercase tracking-widest rounded flex items-center gap-1">
+                    <Star size={10} /> Solo Act
+                  </span>
+                )}
                 {person.user_id && (
                   <span className="px-1.5 py-0.5 bg-green-600/10 text-green-500 text-[9px] font-bold uppercase tracking-widest rounded flex items-center gap-1">
                     <ShieldCheck size={10} /> Login Enabled
@@ -1226,23 +1345,25 @@ export default function PeopleManager() {
                 )}
               </div>
 
-              {((person.venue_ids && person.venue_ids.length > 0) || (person.band_ids && person.band_ids.length > 0)) && (
+              {(venues.some(v => v.manager_id === person.id) || bands.some(b => b.manager_id === person.id)) && (
                 <div className="flex flex-wrap gap-2 pt-2 border-t border-neutral-700/50">
-                  {person.venue_ids?.map(id => {
-                    const venue = venues.find(v => v.id === id);
+                  {venues
+                    .filter(v => v.manager_id === person.id)
+                    .map(venue => {
                     return (
-                      <div key={id} className="flex items-center gap-1 text-[10px] text-neutral-400 bg-neutral-900/50 px-2 py-1 rounded-md">
+                      <div key={venue.id} className="flex items-center gap-1 text-[10px] text-neutral-400 bg-neutral-900/50 px-2 py-1 rounded-md">
                         <Building2 size={10} className="text-neutral-400" />
-                        <span>{venue?.name || `Venue ID: ${id.slice(0, 8)}...`}</span>
+                        <span>{venue.name || `Venue ID: ${venue.id.slice(0, 8)}...`}</span>
                       </div>
                     );
                   })}
-                  {person.band_ids?.map(id => {
-                    const band = bands.find(b => b.id === id);
+                  {bands
+                    .filter(b => b.manager_id === person.id)
+                    .map(band => {
                     return (
-                      <div key={id} className="flex items-center gap-1 text-[10px] text-neutral-400 bg-neutral-900/50 px-2 py-1 rounded-md">
+                      <div key={band.id} className="flex items-center gap-1 text-[10px] text-neutral-400 bg-neutral-900/50 px-2 py-1 rounded-md">
                         <Music size={10} className="text-neutral-400" />
-                        <span>{band?.name || `Band ID: ${id.slice(0, 8)}...`}</span>
+                        <span>{band.name || `Band ID: ${band.id.slice(0, 8)}...`}</span>
                       </div>
                     );
                   })}
