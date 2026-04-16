@@ -1,11 +1,12 @@
 import React from 'react';
 import { Lock } from 'lucide-react';
+import brandLogo from '/bandvenue_transparent.png';
 
 export default function ComingSoon({ onUnlock }: { onUnlock: () => void }) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-neutral-950 text-white p-6">
       <img 
-        src="/bandvenue_transparent.png" 
+        src={brandLogo} 
         alt="BandVenue Logo" 
         className="h-24 w-auto mb-8 max-w-full object-contain"
         referrerPolicy="no-referrer"

@@ -4,6 +4,7 @@ import { useAuth } from '../AuthContext';
 import { useNavigationContext } from '../context/NavigationContext';
 import { motion } from 'motion/react';
 import { Music, Mail, Lock, Loader2, UserPlus, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import brandLogo from '/bandvenue_transparent.png';
 
 export default function AuthUI({ onSuccess }: { onSuccess?: () => void }) {
   const { user } = useAuth();
@@ -168,7 +169,7 @@ export default function AuthUI({ onSuccess }: { onSuccess?: () => void }) {
       >
         <div className="text-center mb-4">
           <img 
-            src="/bandvenue_transparent.png" 
+            src={brandLogo} 
             alt="BandVenue Logo" 
             className="h-24 w-auto mx-auto mb-4 object-contain max-w-full"
             referrerPolicy="no-referrer"

@@ -2,6 +2,8 @@ import React from 'react';
 import { motion } from 'motion/react';
 import { X, Music } from 'lucide-react';
 
+import brandLogo from '/bandvenue_transparent.png';
+
 interface AboutModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -26,7 +28,7 @@ export default function AboutModal({ isOpen, onClose }: AboutModalProps) {
         <div className="mb-6">
           <div className="w-full flex items-center justify-center mb-8">
             <img 
-              src="/bandvenue_transparent.png" 
+              src={brandLogo} 
               alt="BandVenue Logo" 
               className="w-48 h-auto max-w-full object-contain"
               referrerPolicy="no-referrer"

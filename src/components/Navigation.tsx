@@ -14,6 +14,9 @@ import {
   SheetTrigger,
 } from "./ui/sheet";
 
+// Import the logo directly so Vite handles it
+import navLogo from '/bandvenue_nav_logo_transparent.png';
+
 export default function Navigation() {
   const { user, profile, activeRole, setActiveRole, signOut, availableRoles } = useAuth();
   const { 
@@ -79,9 +82,10 @@ export default function Navigation() {
             className="flex items-center cursor-pointer hover:opacity-80 transition-opacity"
           >
             <img 
-              src="/bandvenue_nav_logo_transparent.png" 
+              src={navLogo} 
               alt="BandVenue Logo" 
               className="h-10 w-auto object-contain"
+              referrerPolicy="no-referrer"
             />
           </button>
         </div>

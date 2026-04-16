@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
 import { supabase } from '../lib/supabase';
 import { motion } from 'motion/react';
+import brandLogo from '/bandvenue_transparent.png';
 
 export default function DisclaimerOverlay() {
   const { user } = useAuth();
@@ -57,7 +58,7 @@ export default function DisclaimerOverlay() {
       >
         <div className="w-full flex items-center justify-center mb-6">
           <img 
-            src="/bandvenue_transparent.png" 
+            src={brandLogo} 
             alt="BandVenue Logo" 
             className="w-48 h-auto max-w-full object-contain"
             referrerPolicy="no-referrer"
