@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AppEvent } from '../types';
 import { BandConfirmationPanel } from './ui/BandConfirmationPanel';
+import EventProfileEditor from './EventProfileEditor';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 
@@ -45,7 +46,11 @@ export default function EventEditor({ event, isCopying, intent, onClose, onSave 
           )}
         </div>
         
-        {event && <BandConfirmationPanel event={currentEvent} intent={intent} onUpdate={onSave} />}
+        {intent === 'reviewBand' ? (
+          currentEvent && <BandConfirmationPanel event={currentEvent} intent={intent} onUpdate={onSave} />
+        ) : (
+          <EventProfileEditor eventId={currentEvent.id || ''} onSaveSuccess={onSave} />
+        )}
 
         <div className="flex justify-end gap-4">
           <Button variant="secondary" onClick={onClose} disabled={isSaving}>Close</Button>

@@ -45,7 +45,7 @@ export function BandsView() {
     try {
       const { data, error } = await supabase
         .from('bands_ordered')
-        .select('*, band_genres(genres(name)), people!updated_by_id(first_name, last_name)')
+        .select('*, band_genres(genres(name))')
         .eq('is_published', true)
         .or('is_archived.is.null,is_archived.eq.false')
         .order('name');

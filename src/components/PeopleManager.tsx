@@ -157,12 +157,7 @@ export default function PeopleManager() {
       .from('people')
       .select(`
         *,
-        musician_details:musician_details(*),
-        people!updated_by_id (
-          first_name,
-          last_name,
-          email
-        )
+        musician_details:musician_details(*)
       `)
       .order('created_at', { ascending: false });
     if (data) setPeople(data as any);

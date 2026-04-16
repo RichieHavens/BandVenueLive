@@ -59,15 +59,15 @@ export function EventsView() {
     try {
       const { data } = await supabase
         .from('events')
-        .select('*, venues(name, address_line1, address_line2, city, state, postal_code, country), acts(*, bands:bands_ordered(name)), event_genres(genres(name))')
+        .select('*')
         .eq('is_published', true);
       
       if (data) {
         // Flatten acts to get start_time if needed, and flatten genres
         const processedEvents = data.map(event => ({
           ...event,
-          start_time: event.start_time || event.acts?.[0]?.start_time || event.created_at,
-          event_genres: (event as any).event_genres?.map((eg: any) => eg.genres?.name).filter(Boolean) || []
+          start_time: event.start_time || event.created_at,
+          event_genres: []
         })).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
         
         setEvents(processedEvents);

@@ -389,7 +389,7 @@ export function AdminView() {
     setLoadingBands(true);
     const { data } = await supabase
       .from('bands_ordered')
-      .select('*, people!updated_by_id(first_name, last_name, email)')
+      .select('*')
       .order('name');
     if (data) setBands(data);
     setLoadingBands(false);
@@ -399,7 +399,7 @@ export function AdminView() {
     setLoadingEvents(true);
     const { data } = await supabase
       .from('events')
-      .select('*, people!updated_by_id(first_name, last_name, email), venues(name), acts(start_time, band_id, bands:bands_ordered(name))')
+      .select('*, venues(name), acts(start_time, band_id, bands:bands_ordered(name))')
       .order('created_at', { ascending: false });
     if (data) setEvents(data);
     setLoadingEvents(false);

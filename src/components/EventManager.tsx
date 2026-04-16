@@ -45,17 +45,9 @@ export default function EventManager({ bandId, venueId, initialAttentionFilter =
     try {
       setLoading(true);
       
-      // Base query
-      let selectStr = '*, venues(*), event_genres(genres(name)), people!updated_by_id(first_name, last_name), acts(band_id, bands:bands_ordered(name))';
-      
-      // If filtering by band, we need to use !inner to filter the top-level events
-      if (bandId) {
-        selectStr = '*, venues(*), event_genres(genres(name)), people!updated_by_id(first_name, last_name), acts!inner(band_id, bands:bands_ordered(name))';
-      }
-
       let query = supabase
         .from('events')
-        .select(selectStr)
+        .select('*')
         .order('created_at', { ascending: false });
       
       if (bandId) {

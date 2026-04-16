@@ -24,7 +24,7 @@ interface QuickAddEventModalProps {
 import { useAuth } from '../../AuthContext';
 
 export default function QuickAddEventModal({ isOpen, onClose, onSuccess }: QuickAddEventModalProps) {
-  const { personId } = useAuth();
+  const { user, personId } = useAuth();
   const { setActiveTab, setSelectedEventId } = useNavigationContext();
   const [title, setTitle] = useState('');
   const [venueId, setVenueId] = useState('');
@@ -93,6 +93,7 @@ export default function QuickAddEventModal({ isOpen, onClose, onSuccess }: Quick
         start_time: start,
         end_time: end,
         is_public: isPublic,
+        is_published: true,
         has_multiple_acts: hasMultipleActs,
         overall_status: 'draft',
         created_by_id: personData?.id,

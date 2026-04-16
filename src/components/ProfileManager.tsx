@@ -25,6 +25,13 @@ export default function ProfileManager({ onDirtyChange, onSaveSuccess }: { onDir
   const [activeTab, setActiveTab] = useState<Tab>('account');
   const [isMusician, setIsMusician] = useState(false);
   const [isSoloAct, setIsSoloAct] = useState(profile?.is_solo_act || false);
+  const [selectedRoles, setSelectedRoles] = useState<UserRole[]>([]);
+
+  useEffect(() => {
+    if (availableRoles && availableRoles.length > 0 && selectedRoles.length === 0) {
+      setSelectedRoles(availableRoles);
+    }
+  }, [availableRoles]);
   
   // Account State
   const [firstName, setFirstName] = useState(profile?.first_name || '');

@@ -179,7 +179,7 @@ export default function EventProfileEditor({ eventId, onDirtyChange, onSaveSucce
         band_confirmed: event?.band_confirmed,
         has_multiple_acts: event?.has_multiple_acts,
         is_public: event?.is_public,
-        is_published: event?.is_published,
+        is_published: true,
         hero_url: event?.hero_url,
         bag_policy: event?.bag_policy,
         updated_at: new Date().toISOString(),

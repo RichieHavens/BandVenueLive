@@ -43,7 +43,7 @@ export function VenuesView() {
     try {
       const { data, error } = await supabase
         .from('venues')
-        .select('*, venue_genres(genres(name)), people!updated_by_id(first_name, last_name)')
+        .select('*')
         .or('is_archived.is.null,is_archived.eq.false')
         .order('name');
       if (error) {

@@ -36,6 +36,14 @@ export default function AuthUI({ onSuccess }: { onSuccess?: () => void }) {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log("Auth attempt started");
+    
+    // Fail cleanly if the configuration doesn't have valid ID/names instead of spinning infinitely
+    const isConfigured = !!import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_URL !== 'https://your-project-id.supabase.co';
+    if (!isConfigured) {
+      setError("No ID or name found in config. Please set a valid VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
+      return;
+    }
+
     setLoading(true);
     resetAuthFlow();
 
